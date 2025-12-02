@@ -4,7 +4,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Flame,
-  TrendingUp,
   ExternalLink,
   Info,
   ChevronRight,
@@ -16,12 +15,11 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { formatLavaAmount, formatCurrency, getChainColor } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { formatLavaAmount, formatCurrency } from "@/lib/utils";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Sheet, Modal } from "@/components/ui/Modal";
-import Image from "next/image";
 
 export default function LavaPage() {
   const {
@@ -31,7 +29,6 @@ export default function LavaPage() {
     stakedPercentage,
     chainBalances,
     deFiApps,
-    lavaPrice,
   } = useApp();
 
   const [showStakeModal, setShowStakeModal] = useState(false);
@@ -342,7 +339,7 @@ export default function LavaPage() {
           {/* Intro */}
           <p className="text-sm text-grey-200">
             Your Lava Wallet can connect to any dApp that supports WalletConnect.
-            Here's how:
+            Here&apos;s how:
           </p>
 
           {/* Steps */}

@@ -36,7 +36,6 @@ export default function manifest(): MetadataRoute.Manifest {
         src: "/lava-brand-kit/graphics/graphic-lava-101.webp",
         sizes: "1280x720",
         type: "image/webp",
-        // @ts-expect-error - form_factor is valid but not in types
         form_factor: "wide",
       },
     ],

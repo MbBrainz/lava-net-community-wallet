@@ -174,7 +174,7 @@ export default function CommunityPostPage({ params }: PageProps) {
         {post.label === "Event" && (
           <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
             <h3 className="font-semibold text-white mb-2">
-              Don't miss this event
+              Don&apos;t miss this event
             </h3>
             <p className="text-sm text-grey-200 mb-4">
               Add this event to your calendar to get a reminder.

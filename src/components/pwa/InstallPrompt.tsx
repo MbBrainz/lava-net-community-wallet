@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Share, Plus, ArrowDown, Smartphone, Check } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { isIOS, isAndroid } from "@/lib/utils";
+import { isIOS } from "@/lib/utils";
 import Image from "next/image";
 
 export function InstallPrompt() {
@@ -200,7 +200,7 @@ export function InstallPrompt() {
                     </div>
                     <div className="flex-1">
                       <p className="text-white font-medium">
-                        Scroll and tap "Add to Home Screen"
+                        Scroll and tap &quot;Add to Home Screen&quot;
                       </p>
                       <p className="text-grey-200 text-sm mt-1">
                         You may need to scroll down in the share menu
@@ -218,7 +218,7 @@ export function InstallPrompt() {
                     </div>
                     <div className="flex-1">
                       <p className="text-white font-medium">
-                        Tap "Add" to install
+                        Tap &quot;Add&quot; to install
                       </p>
                       <p className="text-grey-200 text-sm mt-1">
                         The app will appear on your home screen
@@ -260,7 +260,7 @@ export function InstallPrompt() {
 
 // Small install hint that can be shown in cards
 export function InstallHint({ className = "" }: { className?: string }) {
-  const { isInstalled, showInstallBanner, setShowInstallBanner } = useApp();
+  const { isInstalled, setShowInstallBanner } = useApp();
 
   if (isInstalled) return null;
 

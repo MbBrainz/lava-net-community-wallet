@@ -35,10 +35,10 @@ export default function OfflinePage() {
         </div>
 
         {/* Message */}
-        <h1 className="text-2xl font-bold text-white mb-2">You're Offline</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">You&apos;re Offline</h1>
         <p className="text-grey-200 mb-6">
-          It looks like you've lost your internet connection. Some features may
-          be unavailable until you're back online.
+          It looks like you&apos;ve lost your internet connection. Some features may
+          be unavailable until you&apos;re back online.
         </p>
 
         {/* Actions */}

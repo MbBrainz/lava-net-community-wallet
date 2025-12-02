@@ -220,7 +220,7 @@ export default function SettingsPage() {
             </h2>
             <Card variant="glass" padding="none">
               <div className="divide-y divide-grey-425/30">
-                {group.items.map((item, itemIndex) => {
+                {group.items.map((item) => {
                   const Icon = item.icon;
                   const content = (
                     <div className="flex items-center gap-3 p-4 hover:bg-grey-425/20 transition-colors">

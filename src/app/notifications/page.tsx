@@ -8,7 +8,6 @@ import {
   CheckCheck,
   Users,
   Smartphone,
-  Trash2,
   Settings,
   ChevronRight,
 } from "lucide-react";
@@ -38,7 +37,6 @@ export default function NotificationsPage() {
   } = useApp();
 
   const [showSettings, setShowSettings] = useState(false);
-  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
 
   // Check if push is supported and permission status
   const isPushSupported = typeof window !== "undefined" && "Notification" in window;
@@ -54,7 +52,6 @@ export default function NotificationsPage() {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
         // In production, this would register the push subscription
-        setShowPermissionPrompt(false);
       }
     } catch {
       console.log("Push permission request failed");
@@ -144,7 +141,7 @@ export default function NotificationsPage() {
               No notifications yet
             </h3>
             <p className="text-sm text-grey-200">
-              You'll see updates from the community here
+              You&apos;ll see updates from the community here
             </p>
           </motion.div>
         ) : (

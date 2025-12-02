@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { RefreshCw, ChevronDown, ExternalLink, Flame } from "lucide-react";
+import { RefreshCw, ChevronDown, Flame } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { formatLavaAmount, formatCurrency, getChainColor, timeAgo } from "@/lib/utils";
 import { Sheet } from "@/components/ui/Modal";
@@ -16,7 +16,6 @@ export function BalanceHero() {
     lavaPrice,
     lastUpdated,
     refreshPortfolio,
-    isLoading,
     chainBalances,
     isOffline,
   } = useApp();
