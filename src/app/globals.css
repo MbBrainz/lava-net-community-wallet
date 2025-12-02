@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Lava Brand Colors */
+  --lava-orange: #FF3900;
+  --lava-spanish-orange: #EF6000;
+  --lava-gold-drop: #EF8109;
+  --lava-yellow: #FFE50A;
+  --lava-red: #D7001E;
+  --lava-purple: #6D0074;
+  
+  /* Grey Scale */
+  --grey-650: #05090F;
+  --grey-550: #0C121A;
+  --grey-425: #212630;
+  --grey-200: #787A7E;
+  --grey-100: #B9B9B9;
+  --grey-25: #EDEDED;
+  
+  /* Theme Variables - Light */
+  --background: #EDEDED;
+  --background-secondary: #ffffff;
+  --foreground: #05090F;
+  --foreground-secondary: #212630;
+  --foreground-muted: #787A7E;
+  --card: #ffffff;
+  --card-border: rgba(33, 38, 48, 0.1);
+  --accent: #FF3900;
+  --accent-foreground: #ffffff;
+}
+
+.dark {
+  --background: #05090F;
+  --background-secondary: #0C121A;
+  --foreground: #EDEDED;
+  --foreground-secondary: #B9B9B9;
+  --foreground-muted: #787A7E;
+  --card: #0C121A;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --accent: #FF3900;
+  --accent-foreground: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  color-scheme: dark light;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark mode background pattern */
+.dark body {
+  background: 
+    radial-gradient(ellipse at 50% 0%, rgba(255, 57, 0, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, #0C121A 0%, #05090F 100%);
+  background-attachment: fixed;
+}
+
+/* Safe area padding for notched devices */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Hide scrollbar but allow scrolling */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth scroll */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Touch interaction feedback */
+.touch-feedback {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.touch-feedback:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+/* Glassmorphism card effect */
+.glass-card {
+  background: rgba(12, 18, 26, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.light .glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Glow effects */
+.lava-glow {
+  box-shadow: 0 0 40px rgba(255, 57, 0, 0.3);
+}
+
+.lava-glow-intense {
+  box-shadow: 0 0 60px rgba(255, 57, 0, 0.5);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #FF3900 0%, #EF6000 50%, #FFE50A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Bottom nav height variable */
+:root {
+  --bottom-nav-height: 80px;
+}
+
+/* iOS PWA status bar handling */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .app-container {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+  }
+}
+
+/* Disable text selection on UI elements */
+.no-select {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Custom scrollbar for desktop */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: var(--grey-550);
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: var(--grey-425);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--grey-200);
+  }
+}
+
+/* Animation delays for staggered reveals */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+/* Skeleton loading animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--grey-425) 0%,
+    var(--grey-550) 50%,
+    var(--grey-425) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+
