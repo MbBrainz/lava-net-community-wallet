@@ -29,7 +29,7 @@ const serwist = new Serwist({
         },
         networkTimeoutSeconds: 10,
       },
-    },
+    } as any,
     {
       // Cache images
       urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
@@ -41,7 +41,7 @@ const serwist = new Serwist({
           maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
         },
       },
-    },
+    } as any,
     {
       // Cache fonts
       urlPattern: /\.(?:woff|woff2|ttf|otf|eot)$/i,
@@ -53,7 +53,7 @@ const serwist = new Serwist({
           maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
         },
       },
-    },
+    } as any,
   ],
 });
 
@@ -62,7 +62,7 @@ self.addEventListener("push", (event) => {
   if (!event.data) return;
 
   const data = event.data.json();
-  const options: NotificationOptions = {
+  const options: NotificationOptions & { vibrate?: number[]; actions?: Array<{ action: string; title: string }> } = {
     body: data.body || "New notification from Lava Wallet",
     icon: "/lava-brand-kit/logos/logo-icon-color.png",
     badge: "/lava-brand-kit/logos/logo-symbol-white.png",

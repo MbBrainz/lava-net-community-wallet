@@ -231,11 +231,11 @@ export default function SettingsPage() {
                         <p className="text-sm font-medium text-white">
                           {item.label}
                         </p>
-                        {item.value && (
+                        {'value' in item && item.value && (
                           <p className="text-xs text-grey-200">{item.value}</p>
                         )}
                       </div>
-                      {item.external ? (
+                      {'external' in item && item.external ? (
                         <ExternalLink className="w-4 h-4 text-grey-200" />
                       ) : (
                         <ChevronRight className="w-5 h-5 text-grey-200" />
@@ -243,7 +243,7 @@ export default function SettingsPage() {
                     </div>
                   );
 
-                  if (item.href && item.external) {
+                  if ('href' in item && item.href && 'external' in item && item.external) {
                     return (
                       <a
                         key={item.label}
@@ -256,7 +256,7 @@ export default function SettingsPage() {
                     );
                   }
 
-                  if (item.href) {
+                  if ('href' in item && item.href) {
                     return (
                       <a key={item.label} href={item.href}>
                         {content}
@@ -264,7 +264,7 @@ export default function SettingsPage() {
                     );
                   }
 
-                  if (item.onClick) {
+                  if ('onClick' in item && item.onClick) {
                     return (
                       <button
                         key={item.label}
