@@ -29,7 +29,6 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
     refreshBalance,
     isRefreshing,
     isOffline,
-    multiChainBalance,
   } = useApp();
 
   const [showDetails, setShowDetails] = useState(false);
@@ -155,13 +154,15 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
             <div className="flex items-center gap-2 text-xs text-grey-200">
               {isOffline ? (
                 <Badge variant="warning" size="sm">Offline</Badge>
-              ) : multiChainBalance ? (
+              ) : isRefreshing ? (
+                <span>Loading...</span>
+              ) : lastUpdated ? (
                 <>
                   <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                   <span>Updated {timeAgo(lastUpdated)}</span>
                 </>
               ) : (
-                <span>Loading...</span>
+                <span>Ready</span>
               )}
             </div>
             

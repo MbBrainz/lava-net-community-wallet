@@ -9,11 +9,7 @@ import React, {
   ReactNode,
 } from "react";
 import { useAuth, AuthUser } from "@/context/AuthContext";
-import {
-  fetchBalanceWithCache,
-  clearBalanceCache,
-  type MultiChainBalance,
-} from "@/lib/services/balance";
+import { useLavaBalance } from "@/lib/hooks/useLavaBalance";
 import { WalletTransaction } from "@/lib/wallet";
 import {
   mockCommunityPosts,
@@ -38,14 +34,14 @@ interface AppContextType {
   user: AuthUser | null;
   logout: () => Promise<void>;
 
-  // Wallet & Balance data
+  // Wallet & Balance data (powered by Dynamic SDK's useTokenBalances)
   walletAddress: string | null;
-  multiChainBalance: MultiChainBalance | null;
-  lastUpdated: Date;
-  refreshBalance: () => Promise<void>;
+  lastUpdated: Date | null;
+  refreshBalance: () => void;
   isRefreshing: boolean;
+  balanceError: Error | null;
 
-  // Computed balance values
+  // Balance values
   totalLavaBalance: number;
   arbitrumLavaBalance: number;
   baseLavaBalance: number;
@@ -105,10 +101,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     logout: authLogout,
   } = useAuth();
 
-  // Balance state
-  const [multiChainBalance, setMultiChainBalance] = useState<MultiChainBalance | null>(null);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  // Balance state from Dynamic SDK's useTokenBalances hook
+  const {
+    arbitrumLava,
+    baseLava,
+    totalLava,
+    arbitrumEth,
+    baseEth,
+    isLoading: balanceLoading,
+    isError: balanceError,
+    error: balanceErrorDetails,
+    lastUpdated,
+    refetch: refreshBalanceFromHook,
+  } = useLavaBalance();
 
   // Transactions (placeholder)
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -148,61 +153,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Wallet address from user
   const walletAddress = user?.walletAddress || null;
 
-  // Computed balance values
-  const totalLavaBalance = multiChainBalance?.totalLavaBalance || 0;
+  // Balance values from Dynamic SDK hook
+  const totalLavaBalance = totalLava;
+  const arbitrumLavaBalance = arbitrumLava;
+  const baseLavaBalance = baseLava;
+  const arbitrumEthBalance = arbitrumEth;
+  const baseEthBalance = baseEth;
 
-  const arbitrumLavaBalance = multiChainBalance?.chains
-    .find((c) => c.chainId === 42161)
-    ?.tokens.find((t) => t.symbol === "LAVA")?.balanceFormatted || 0;
-
-  const baseLavaBalance = multiChainBalance?.chains
-    .find((c) => c.chainId === 8453)
-    ?.tokens.find((t) => t.symbol === "LAVA")?.balanceFormatted || 0;
-
-  const arbitrumEthBalance = multiChainBalance?.chains
-    .find((c) => c.chainId === 42161)?.nativeBalanceFormatted || 0;
-
-  const baseEthBalance = multiChainBalance?.chains
-    .find((c) => c.chainId === 8453)?.nativeBalanceFormatted || 0;
-
-  // Fetch balance when wallet address changes
-  useEffect(() => {
-    const fetchData = async () => {
-      if (walletAddress && isAuthenticated && !isOffline) {
-        try {
-          console.log("[AppContext] Fetching balance for:", walletAddress);
-          const balance = await fetchBalanceWithCache(walletAddress as `0x${string}`, true);
-          setMultiChainBalance(balance);
-          setLastUpdated(new Date());
-          console.log("[AppContext] Balance fetched:", balance);
-        } catch (error) {
-          console.error("[AppContext] Failed to fetch balance:", error);
-        }
-      } else {
-        // Clear data when logged out
-        setMultiChainBalance(null);
-        setTransactions([]);
-      }
-    };
-
-    fetchData();
-  }, [walletAddress, isAuthenticated, isOffline]);
-
-  // Refresh balance
-  const refreshBalance = useCallback(async () => {
+  // Refresh balance using Dynamic SDK's refetch
+  const refreshBalance = useCallback(() => {
     if (!walletAddress || isOffline) return;
+    refreshBalanceFromHook();
+  }, [walletAddress, isOffline, refreshBalanceFromHook]);
 
-    setIsRefreshing(true);
-    try {
-      const balance = await fetchBalanceWithCache(walletAddress as `0x${string}`, true);
-      setMultiChainBalance(balance);
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error("[AppContext] Failed to refresh balance:", error);
-    } finally {
-      setIsRefreshing(false);
+  // Clear transactions when logged out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setTransactions([]);
     }
-  }, [walletAddress, isOffline]);
+  }, [isAuthenticated]);
 
   // Refresh transactions (placeholder)
   const refreshTransactions = useCallback(async () => {
@@ -212,16 +181,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Logout handler
   const logout = useCallback(async () => {
-    // Clear caches
-    if (walletAddress) {
-      clearBalanceCache(walletAddress);
-    }
     // Clear local state
-    setMultiChainBalance(null);
     setTransactions([]);
     // Call auth logout
     await authLogout();
-  }, [walletAddress, authLogout]);
+  }, [authLogout]);
 
   // Check if running as PWA
   useEffect(() => {
@@ -334,14 +298,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         isAuthenticated,
-        isLoading: authLoading,
+        isLoading: authLoading || balanceLoading,
         user,
         logout,
         walletAddress,
-        multiChainBalance,
         lastUpdated,
         refreshBalance,
-        isRefreshing,
+        isRefreshing: balanceLoading,
+        balanceError: balanceErrorDetails,
         totalLavaBalance,
         arbitrumLavaBalance,
         baseLavaBalance,
