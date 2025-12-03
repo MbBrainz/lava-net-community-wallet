@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { shortenAddress, getChainColor } from "@/lib/utils";
+import { getAddressExplorerUrl } from "@/lib/chains/lava";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -39,6 +40,7 @@ const themeOptions: { value: Theme; label: string; icon: typeof Sun }[] = [
 export default function SettingsPage() {
   const {
     user,
+    walletAddress,
     logout,
     theme,
     setTheme,
@@ -49,20 +51,37 @@ export default function SettingsPage() {
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showWalletSheet, setShowWalletSheet] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const mockChains = [
+  // Currently only Lava is enabled
+  const enabledChains = [
     { name: "Lava", enabled: true },
-    { name: "Ethereum", enabled: true },
-    { name: "Base", enabled: true },
-    { name: "Arbitrum", enabled: true },
-    { name: "Optimism", enabled: true },
-    { name: "Polygon", enabled: true },
+    // Future chains will be added here
+    // { name: "Ethereum", enabled: false },
+    // { name: "Base", enabled: false },
+    // { name: "Arbitrum", enabled: false },
   ];
 
-  const handleCopyAddress = () => {
-    navigator.clipboard.writeText(user?.walletAddress || "");
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyAddress = async () => {
+    if (!walletAddress) return;
+    try {
+      await navigator.clipboard.writeText(walletAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const settingsGroups = [
@@ -72,13 +91,13 @@ export default function SettingsPage() {
         {
           icon: User,
           label: "Profile",
-          value: user?.email || "demo@lavanet.xyz",
+          value: user?.email || "Not connected",
           onClick: undefined,
         },
         {
           icon: Wallet,
           label: "Wallet & Chains",
-          value: `${mockChains.filter((c) => c.enabled).length} chains`,
+          value: `${enabledChains.filter((c) => c.enabled).length} chain${enabledChains.filter((c) => c.enabled).length !== 1 ? "s" : ""}`,
           onClick: () => setShowWalletSheet(true),
         },
       ],
@@ -152,23 +171,25 @@ export default function SettingsPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-white truncate">
-                  {user?.email || "demo@lavanet.xyz"}
+                  {user?.email || "Not connected"}
                 </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-sm text-grey-200 font-mono">
-                    {shortenAddress(user?.walletAddress || "lava1xz9...m4c7nq", 6)}
-                  </p>
-                  <button
-                    onClick={handleCopyAddress}
-                    className="p-1 text-grey-200 hover:text-white transition-colors"
-                  >
-                    {copied ? (
-                      <Check className="w-3.5 h-3.5 text-green-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
+                {walletAddress && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-sm text-grey-200 font-mono">
+                      {shortenAddress(walletAddress, 6)}
+                    </p>
+                    <button
+                      onClick={handleCopyAddress}
+                      className="p-1 text-grey-200 hover:text-white transition-colors"
+                    >
+                      {copied ? (
+                        <Check className="w-3.5 h-3.5 text-green-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
@@ -231,11 +252,11 @@ export default function SettingsPage() {
                         <p className="text-sm font-medium text-white">
                           {item.label}
                         </p>
-                        {'value' in item && item.value && (
+                        {"value" in item && item.value && (
                           <p className="text-xs text-grey-200">{item.value}</p>
                         )}
                       </div>
-                      {'external' in item && item.external ? (
+                      {"external" in item && item.external ? (
                         <ExternalLink className="w-4 h-4 text-grey-200" />
                       ) : (
                         <ChevronRight className="w-5 h-5 text-grey-200" />
@@ -243,7 +264,7 @@ export default function SettingsPage() {
                     </div>
                   );
 
-                  if ('href' in item && item.href && 'external' in item && item.external) {
+                  if ("href" in item && item.href && "external" in item && item.external) {
                     return (
                       <a
                         key={item.label}
@@ -256,7 +277,7 @@ export default function SettingsPage() {
                     );
                   }
 
-                  if ('href' in item && item.href) {
+                  if ("href" in item && item.href) {
                     return (
                       <a key={item.label} href={item.href}>
                         {content}
@@ -264,7 +285,7 @@ export default function SettingsPage() {
                     );
                   }
 
-                  if ('onClick' in item && item.onClick) {
+                  if ("onClick" in item && item.onClick) {
                     return (
                       <button
                         key={item.label}
@@ -297,15 +318,16 @@ export default function SettingsPage() {
           <Button
             variant="danger"
             fullWidth
-            onClick={logout}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
             className="flex items-center justify-center gap-2"
           >
             <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
+            <span>{isLoggingOut ? "Signing out..." : "Sign Out"}</span>
           </Button>
 
           <p className="text-center text-xs text-grey-200">
-            Lava Wallet v0.1.0 (Demo)
+            Lava Wallet v0.1.0
           </p>
         </motion.div>
       </div>
@@ -375,19 +397,32 @@ export default function SettingsPage() {
               <p className="text-xs text-grey-200 mb-2">Lava Network</p>
               <div className="flex items-center gap-2">
                 <code className="text-sm text-white font-mono break-all">
-                  {user?.walletAddress || "lava1xz9v8k7j2h4n5m6p3q8r9s0t1u2v3w4x5y6z7m4c7nq"}
+                  {walletAddress || "Not connected"}
                 </code>
-                <button
-                  onClick={handleCopyAddress}
-                  className="p-2 text-grey-200 hover:text-white transition-colors flex-shrink-0"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-green-400" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
+                {walletAddress && (
+                  <button
+                    onClick={handleCopyAddress}
+                    className="p-2 text-grey-200 hover:text-white transition-colors flex-shrink-0"
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4 text-green-400" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                )}
               </div>
+              {walletAddress && (
+                <a
+                  href={getAddressExplorerUrl(walletAddress)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-lava-orange mt-2 hover:underline"
+                >
+                  <span>View on explorer</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
           </div>
 
@@ -397,7 +432,7 @@ export default function SettingsPage() {
               Enabled Chains
             </h3>
             <div className="space-y-2">
-              {mockChains.map((chain) => (
+              {enabledChains.map((chain) => (
                 <div
                   key={chain.name}
                   className="flex items-center gap-3 p-3 bg-grey-650/50 rounded-xl"
@@ -421,8 +456,8 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <span className="flex-1 text-sm text-white">{chain.name}</span>
-                  <Badge variant="success" size="sm">
-                    Active
+                  <Badge variant={chain.enabled ? "success" : "default"} size="sm">
+                    {chain.enabled ? "Active" : "Coming Soon"}
                   </Badge>
                 </div>
               ))}
@@ -442,4 +477,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

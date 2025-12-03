@@ -25,20 +25,17 @@ export default function LavaPage() {
   const {
     totalLava,
     totalUsdValue,
+    availableLava,
     stakedLava,
+    rewardsLava,
     stakedPercentage,
-    chainBalances,
     deFiApps,
+    isOffline,
   } = useApp();
 
   const [showStakeModal, setShowStakeModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [stakeAmount, setStakeAmount] = useState("");
-
-  // Get Lava chain balances
-  const lavaChainBalances = chainBalances.filter((b) => b.chain === "Lava");
-  const liquidLava = lavaChainBalances.find((b) => b.type === "native")?.amount || 0;
-  const rewardsLava = lavaChainBalances.find((b) => b.type === "rewards")?.amount || 0;
 
   const riskColors = {
     Low: "success",
@@ -107,7 +104,7 @@ export default function LavaPage() {
               />
             </div>
             <div className="flex justify-between mt-2 text-xs text-grey-200">
-              <span>Liquid: {formatLavaAmount(liquidLava)}</span>
+              <span>Available: {formatLavaAmount(availableLava)}</span>
               <span>Staked: {formatLavaAmount(stakedLava)}</span>
             </div>
           </Card>
@@ -146,7 +143,7 @@ export default function LavaPage() {
                     <p className="text-sm font-semibold text-green-400">
                       +{formatLavaAmount(rewardsLava)}
                     </p>
-                    <Button size="sm" className="mt-1">
+                    <Button size="sm" className="mt-1" disabled={isOffline}>
                       Claim
                     </Button>
                   </div>
@@ -158,6 +155,7 @@ export default function LavaPage() {
                 <Button
                   onClick={() => setShowStakeModal(true)}
                   className="flex-col h-auto py-4"
+                  disabled={availableLava <= 0 || isOffline}
                 >
                   <Lock className="w-5 h-5 mb-1" />
                   <span>Stake</span>
@@ -165,6 +163,7 @@ export default function LavaPage() {
                 <Button
                   variant="secondary"
                   className="flex-col h-auto py-4"
+                  disabled={stakedLava <= 0 || isOffline}
                 >
                   <Unlock className="w-5 h-5 mb-1" />
                   <span>Unstake</span>
@@ -276,14 +275,14 @@ export default function LavaPage() {
                 className="w-full bg-grey-650 border border-grey-425 rounded-xl px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-lava-orange transition-colors"
               />
               <button
-                onClick={() => setStakeAmount(liquidLava.toString())}
+                onClick={() => setStakeAmount(availableLava.toString())}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-lava-orange font-semibold"
               >
                 MAX
               </button>
             </div>
             <p className="text-xs text-grey-200 mt-2">
-              Available: {formatLavaAmount(liquidLava)} LAVA
+              Available: {formatLavaAmount(availableLava)} LAVA
             </p>
           </div>
 
@@ -318,12 +317,12 @@ export default function LavaPage() {
           <div className="flex items-start gap-3 p-3 bg-lava-yellow/10 border border-lava-yellow/20 rounded-xl">
             <AlertTriangle className="w-5 h-5 text-lava-yellow flex-shrink-0" />
             <p className="text-xs text-grey-100">
-              This is a demo interface. In production, staking requires signing
-              a transaction with your wallet.
+              Staking transactions will be signed using your embedded wallet.
+              Once staked, tokens are locked for the unbonding period.
             </p>
           </div>
 
-          <Button fullWidth size="lg" disabled={!stakeAmount}>
+          <Button fullWidth size="lg" disabled={!stakeAmount || parseFloat(stakeAmount) <= 0}>
             Stake LAVA
           </Button>
         </div>
@@ -402,4 +401,3 @@ export default function LavaPage() {
     </div>
   );
 }
-

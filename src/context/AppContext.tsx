@@ -1,21 +1,25 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import { useAuth, AuthUser } from "@/context/AuthContext";
+import { fetchLavaBalance, clearBalanceCache } from "@/lib/services/balance";
 import {
-  mockUserProfile,
-  mockChainBalances,
-  mockTransactions,
+  fetchTransactionHistory,
+  clearTransactionCache,
+} from "@/lib/services/transactions";
+import { WalletBalance, WalletTransaction } from "@/lib/wallet";
+import {
   mockCommunityPosts,
   mockNotifications,
   mockDeFiApps,
-  mockTotalLava,
-  mockTotalUsdValue,
-  mockStakedLava,
-  mockStakedPercentage,
   MOCK_LAVA_PRICE,
-  type UserProfile,
-  type ChainBalance,
-  type Transaction,
   type CommunityPost,
   type Notification,
   type DeFiApp,
@@ -29,37 +33,43 @@ interface NotificationSettings {
 }
 
 interface AppContextType {
-  // Auth state (mocked)
+  // Auth state (from AuthContext)
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: UserProfile | null;
-  login: (email: string) => Promise<void>;
-  logout: () => void;
+  user: AuthUser | null;
+  logout: () => Promise<void>;
 
-  // Portfolio data
-  chainBalances: ChainBalance[];
-  totalLava: number;
-  totalUsdValue: number;
-  stakedLava: number;
-  stakedPercentage: number;
+  // Wallet & Balance data
+  walletAddress: string | null;
+  balance: WalletBalance | null;
   lavaPrice: number;
   lastUpdated: Date;
-  refreshPortfolio: () => Promise<void>;
+  refreshBalance: () => Promise<void>;
+  isRefreshing: boolean;
+
+  // Computed balance values
+  totalLava: number;
+  totalUsdValue: number;
+  availableLava: number;
+  stakedLava: number;
+  rewardsLava: number;
+  stakedPercentage: number;
 
   // Transactions
-  transactions: Transaction[];
+  transactions: WalletTransaction[];
+  refreshTransactions: () => Promise<void>;
 
-  // Community
+  // Community (still mocked for now)
   communityPosts: CommunityPost[];
   pinnedPost: CommunityPost | null;
 
-  // Notifications
+  // Notifications (still mocked for now)
   notifications: Notification[];
   unreadCount: number;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
 
-  // DeFi Apps
+  // DeFi Apps (still mocked for now)
   deFiApps: DeFiApp[];
 
   // Theme
@@ -90,60 +100,145 @@ interface BeforeInstallPromptEvent extends Event {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Auth state
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // Demo: start logged in
-  const [isLoading, setIsLoading] = useState(false);
-  const [user, setUser] = useState<UserProfile | null>(mockUserProfile);
+  // Get auth state from AuthContext
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    user,
+    logout: authLogout,
+  } = useAuth();
 
-  // Portfolio (using mock data)
-  const [chainBalances] = useState<ChainBalance[]>(mockChainBalances);
-  const [totalLava] = useState(mockTotalLava);
-  const [totalUsdValue] = useState(mockTotalUsdValue);
-  const [stakedLava] = useState(mockStakedLava);
-  const [stakedPercentage] = useState(mockStakedPercentage);
-  const [lavaPrice] = useState(MOCK_LAVA_PRICE);
+  // Balance state
+  const [balance, setBalance] = useState<WalletBalance | null>(null);
+  const [lavaPrice] = useState(MOCK_LAVA_PRICE); // TODO: Fetch real price
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Transactions
-  const [transactions] = useState<Transaction[]>(mockTransactions);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
 
-  // Community
+  // Community (mocked)
   const [communityPosts] = useState<CommunityPost[]>(mockCommunityPosts);
   const pinnedPost = communityPosts.find((p) => p.isPinned) || null;
 
-  // Notifications
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  // Notifications (mocked)
+  const [notifications, setNotifications] =
+    useState<Notification[]>(mockNotifications);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // DeFi Apps
+  // DeFi Apps (mocked)
   const [deFiApps] = useState<DeFiApp[]>(mockDeFiApps);
 
   // Theme
   const [theme, setThemeState] = useState<Theme>("dark");
 
   // Notification settings
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
-    communityUpdates: true,
-    appUpdates: true,
-  });
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettings>({
+      communityUpdates: true,
+      appUpdates: true,
+    });
 
   // PWA state
   const [isInstalled, setIsInstalled] = useState(false);
   const [canInstall, setCanInstall] = useState(false);
-  const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(
-    null
-  );
+  const [installPromptEvent, setInstallPromptEvent] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   // Offline state
   const [isOffline, setIsOffline] = useState(false);
+
+  // Wallet address from user
+  const walletAddress = user?.walletAddress || null;
+
+  // Computed balance values
+  const totalLava = balance?.total || 0;
+  const availableLava = balance?.available || 0;
+  const stakedLava = balance?.staked || 0;
+  const rewardsLava = balance?.rewards || 0;
+  const totalUsdValue = totalLava * lavaPrice;
+  const stakedPercentage = totalLava > 0 ? (stakedLava / totalLava) * 100 : 0;
+
+  // Fetch balance when wallet address changes
+  useEffect(() => {
+    const fetchData = async () => {
+      if (walletAddress && isAuthenticated && !isOffline) {
+        // Fetch balance
+        try {
+          const newBalance = await fetchLavaBalance(walletAddress, true);
+          setBalance(newBalance);
+          setLastUpdated(new Date());
+        } catch (error) {
+          console.error("[AppContext] Failed to fetch balance:", error);
+        }
+        
+        // Fetch transactions
+        try {
+          const txHistory = await fetchTransactionHistory(walletAddress, true);
+          setTransactions(txHistory);
+        } catch (error) {
+          console.error("[AppContext] Failed to fetch transactions:", error);
+        }
+      } else {
+        // Clear data when logged out
+        setBalance(null);
+        setTransactions([]);
+      }
+    };
+    
+    fetchData();
+  }, [walletAddress, isAuthenticated, isOffline]);
+
+  // Refresh balance
+  const refreshBalance = useCallback(async () => {
+    if (!walletAddress || isOffline) return;
+
+    setIsRefreshing(true);
+    try {
+      const newBalance = await fetchLavaBalance(walletAddress, true);
+      setBalance(newBalance);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("[AppContext] Failed to refresh balance:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [walletAddress, isOffline]);
+
+  // Refresh transactions
+  const refreshTransactions = useCallback(async () => {
+    if (!walletAddress || isOffline) return;
+
+    try {
+      const txHistory = await fetchTransactionHistory(walletAddress, true);
+      setTransactions(txHistory);
+    } catch (error) {
+      console.error("[AppContext] Failed to refresh transactions:", error);
+    }
+  }, [walletAddress, isOffline]);
+
+  // Logout handler
+  const logout = useCallback(async () => {
+    // Clear caches
+    if (walletAddress) {
+      clearBalanceCache(walletAddress);
+      clearTransactionCache(walletAddress);
+    }
+    // Clear local state
+    setBalance(null);
+    setTransactions([]);
+    // Call auth logout
+    await authLogout();
+  }, [walletAddress, authLogout]);
 
   // Check if running as PWA
   useEffect(() => {
     const checkInstalled = () => {
       const isStandalone =
         window.matchMedia("(display-mode: standalone)").matches ||
-        (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+        (window.navigator as Navigator & { standalone?: boolean }).standalone ===
+          true;
       setIsInstalled(isStandalone);
       if (!isStandalone) {
         // Delay showing the install banner
@@ -152,8 +247,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
     checkInstalled();
 
-    // Listen for display mode changes
-    window.matchMedia("(display-mode: standalone)").addEventListener("change", checkInstalled);
+    window
+      .matchMedia("(display-mode: standalone)")
+      .addEventListener("change", checkInstalled);
 
     return () => {
       window
@@ -173,7 +269,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt
+      );
     };
   }, []);
 
@@ -205,7 +304,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     root.classList.remove("light", "dark");
 
     if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
         ? "dark"
         : "light";
       root.classList.add(systemTheme);
@@ -215,29 +315,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem("theme", theme);
   }, [theme]);
-
-  // Auth methods (mocked)
-  const login = async (email: string) => {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setUser({ ...mockUserProfile, email });
-    setIsAuthenticated(true);
-    setIsLoading(false);
-  };
-
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-  };
-
-  // Portfolio refresh (mocked)
-  const refreshPortfolio = async () => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setLastUpdated(new Date());
-    setIsLoading(false);
-  };
 
   // Notification methods
   const markAsRead = (id: string) => {
@@ -256,7 +333,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Notification settings
-  const updateNotificationSettings = (settings: Partial<NotificationSettings>) => {
+  const updateNotificationSettings = (
+    settings: Partial<NotificationSettings>
+  ) => {
     setNotificationSettings((prev) => ({ ...prev, ...settings }));
   };
 
@@ -264,19 +343,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         isAuthenticated,
-        isLoading,
+        isLoading: authLoading,
         user,
-        login,
         logout,
-        chainBalances,
-        totalLava,
-        totalUsdValue,
-        stakedLava,
-        stakedPercentage,
+        walletAddress,
+        balance,
         lavaPrice,
         lastUpdated,
-        refreshPortfolio,
+        refreshBalance,
+        isRefreshing,
+        totalLava,
+        totalUsdValue,
+        availableLava,
+        stakedLava,
+        rewardsLava,
+        stakedPercentage,
         transactions,
+        refreshTransactions,
         communityPosts,
         pinnedPost,
         notifications,
@@ -309,5 +392,3 @@ export function useApp() {
   }
   return context;
 }
-
-

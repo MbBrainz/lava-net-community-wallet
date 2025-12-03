@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { AppProvider } from "@/context/AppContext";
-import { BottomNav } from "@/components/navigation/BottomNav";
-import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { Providers } from "@/providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -72,13 +70,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        <AppProvider>
-          <div className="app-container min-h-screen pb-[var(--bottom-nav-height)]">
-            <main className="safe-area-top">{children}</main>
-          </div>
-          <BottomNav />
-          <InstallPrompt />
-        </AppProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

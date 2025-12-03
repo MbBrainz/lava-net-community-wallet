@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useApp } from "@/context/AppContext";
@@ -7,9 +8,15 @@ import { BalanceHero } from "@/components/home/BalanceHero";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { FeatureCards } from "@/components/home/FeatureCards";
 import { Badge } from "@/components/ui/Badge";
+import { SendSheet } from "@/components/wallet/SendSheet";
+import { ReceiveSheet } from "@/components/wallet/ReceiveSheet";
 
 export default function HomePage() {
-  const { user, isOffline } = useApp();
+  const { user, isOffline, balance } = useApp();
+  
+  // Send/Receive sheet state
+  const [showSendSheet, setShowSendSheet] = useState(false);
+  const [showReceiveSheet, setShowReceiveSheet] = useState(false);
 
   return (
     <div className="min-h-screen">
@@ -45,8 +52,11 @@ export default function HomePage() {
 
       {/* Main content */}
       <div className="px-4 py-4 space-y-6">
-        {/* Balance Hero */}
-        <BalanceHero />
+        {/* Balance Hero with Send/Receive callbacks */}
+        <BalanceHero 
+          onSend={() => setShowSendSheet(true)}
+          onReceive={() => setShowReceiveSheet(true)}
+        />
 
         {/* Feature Cards Carousel */}
         <section>
@@ -61,7 +71,19 @@ export default function HomePage() {
           <ActivityFeed />
         </section>
       </div>
+
+      {/* Send Sheet */}
+      <SendSheet
+        isOpen={showSendSheet}
+        onClose={() => setShowSendSheet(false)}
+        balance={balance}
+      />
+
+      {/* Receive Sheet */}
+      <ReceiveSheet
+        isOpen={showReceiveSheet}
+        onClose={() => setShowReceiveSheet(false)}
+      />
     </div>
   );
 }
-

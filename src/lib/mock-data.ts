@@ -1,26 +1,8 @@
 // Mock data for UI demonstration
 // All values are fake and for display purposes only
-
-export interface ChainBalance {
-  chain: string;
-  chainId: string;
-  amount: number;
-  usdValue: number;
-  type: "native" | "wrapped" | "staked" | "rewards";
-  address: string;
-}
-
-export interface Transaction {
-  id: string;
-  type: "send" | "receive" | "stake" | "unstake" | "claim";
-  amount: number;
-  chain: string;
-  status: "confirmed" | "pending" | "failed";
-  timestamp: Date;
-  txHash: string;
-  from?: string;
-  to?: string;
-}
+//
+// NOTE: Transaction type and mockTransactions have been removed.
+// Use WalletTransaction from @/lib/wallet for transaction types.
 
 export interface CommunityPost {
   id: string;
@@ -55,135 +37,8 @@ export interface DeFiApp {
   apy?: string;
 }
 
-export interface UserProfile {
-  email: string;
-  walletAddress: string;
-  createdAt: Date;
-  enabledChains: string[];
-}
-
 // Mock LAVA price
 export const MOCK_LAVA_PRICE = 0.0847;
-
-// Mock user profile
-export const mockUserProfile: UserProfile = {
-  email: "demo@lavanet.xyz",
-  walletAddress: "lava1xz9v8k...m4c7nq",
-  createdAt: new Date("2024-06-15"),
-  enabledChains: ["lava", "ethereum", "base", "arbitrum", "optimism", "polygon"],
-};
-
-// Mock chain balances
-export const mockChainBalances: ChainBalance[] = [
-  {
-    chain: "Lava",
-    chainId: "lava-mainnet-1",
-    amount: 15420.5,
-    usdValue: 15420.5 * MOCK_LAVA_PRICE,
-    type: "native",
-    address: "lava1xz9v8k7j2h4n5m6p3q8r9s0t1u2v3w4x5y6z7m4c7nq",
-  },
-  {
-    chain: "Lava",
-    chainId: "lava-mainnet-1",
-    amount: 8500,
-    usdValue: 8500 * MOCK_LAVA_PRICE,
-    type: "staked",
-    address: "lava1xz9v8k7j2h4n5m6p3q8r9s0t1u2v3w4x5y6z7m4c7nq",
-  },
-  {
-    chain: "Lava",
-    chainId: "lava-mainnet-1",
-    amount: 127.35,
-    usdValue: 127.35 * MOCK_LAVA_PRICE,
-    type: "rewards",
-    address: "lava1xz9v8k7j2h4n5m6p3q8r9s0t1u2v3w4x5y6z7m4c7nq",
-  },
-  {
-    chain: "Base",
-    chainId: "8453",
-    amount: 2500,
-    usdValue: 2500 * MOCK_LAVA_PRICE,
-    type: "wrapped",
-    address: "0x1234...abcd",
-  },
-  {
-    chain: "Ethereum",
-    chainId: "1",
-    amount: 1200,
-    usdValue: 1200 * MOCK_LAVA_PRICE,
-    type: "wrapped",
-    address: "0x1234...abcd",
-  },
-  {
-    chain: "Arbitrum",
-    chainId: "42161",
-    amount: 850,
-    usdValue: 850 * MOCK_LAVA_PRICE,
-    type: "wrapped",
-    address: "0x1234...abcd",
-  },
-];
-
-// Calculate totals
-export const mockTotalLava = mockChainBalances.reduce((acc, b) => acc + b.amount, 0);
-export const mockTotalUsdValue = mockChainBalances.reduce((acc, b) => acc + b.usdValue, 0);
-export const mockStakedLava = mockChainBalances
-  .filter((b) => b.type === "staked")
-  .reduce((acc, b) => acc + b.amount, 0);
-export const mockStakedPercentage = (mockStakedLava / mockTotalLava) * 100;
-
-// Mock transactions
-export const mockTransactions: Transaction[] = [
-  {
-    id: "1",
-    type: "receive",
-    amount: 500,
-    chain: "Lava",
-    status: "confirmed",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 min ago
-    txHash: "0xabc123...def456",
-    from: "lava1abc...xyz",
-  },
-  {
-    id: "2",
-    type: "stake",
-    amount: 1000,
-    chain: "Lava",
-    status: "confirmed",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    txHash: "0x789abc...123def",
-  },
-  {
-    id: "3",
-    type: "claim",
-    amount: 45.5,
-    chain: "Lava",
-    status: "confirmed",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    txHash: "0xdef789...abc012",
-  },
-  {
-    id: "4",
-    type: "send",
-    amount: 200,
-    chain: "Base",
-    status: "confirmed",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48), // 2 days ago
-    txHash: "0x456def...789abc",
-    to: "0x9876...5432",
-  },
-  {
-    id: "5",
-    type: "receive",
-    amount: 750,
-    chain: "Ethereum",
-    status: "confirmed",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72), // 3 days ago
-    txHash: "0x012abc...345def",
-    from: "0xabcd...efgh",
-  },
-];
 
 // Mock community posts
 export const mockCommunityPosts: CommunityPost[] = [
@@ -335,5 +190,3 @@ export const mockDeFiApps: DeFiApp[] = [
     apy: "3-6%",
   },
 ];
-
-

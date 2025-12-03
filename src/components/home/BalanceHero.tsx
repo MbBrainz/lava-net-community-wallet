@@ -2,33 +2,59 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { RefreshCw, ChevronDown, Flame } from "lucide-react";
+import { RefreshCw, ChevronDown, Flame, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { formatLavaAmount, formatCurrency, getChainColor, timeAgo } from "@/lib/utils";
 import { Sheet } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import Image from "next/image";
 
-export function BalanceHero() {
+interface BalanceHeroProps {
+  onSend?: () => void;
+  onReceive?: () => void;
+}
+
+export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
   const {
     totalLava,
     totalUsdValue,
+    availableLava,
+    stakedLava,
+    rewardsLava,
     lavaPrice,
     lastUpdated,
-    refreshPortfolio,
-    chainBalances,
+    refreshBalance,
+    isRefreshing,
     isOffline,
+    balance,
   } = useApp();
 
   const [showDetails, setShowDetails] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
     if (isOffline) return;
-    setIsRefreshing(true);
-    await refreshPortfolio();
-    setIsRefreshing(false);
+    await refreshBalance();
   };
+
+  // Build balance breakdown for the sheet
+  const balanceBreakdown = [
+    {
+      type: "Available",
+      amount: availableLava,
+      description: "Ready to send or stake",
+    },
+    {
+      type: "Staked",
+      amount: stakedLava,
+      description: "Earning rewards",
+    },
+    {
+      type: "Rewards",
+      amount: rewardsLava,
+      description: "Claimable",
+    },
+  ];
 
   return (
     <>
@@ -84,16 +110,38 @@ export function BalanceHero() {
             </p>
           </div>
 
+          {/* Send/Receive buttons */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <Button
+              onClick={onSend}
+              className="flex items-center justify-center gap-2"
+              disabled={availableLava <= 0}
+            >
+              <ArrowUpRight className="w-4 h-4" />
+              <span>Send</span>
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={onReceive}
+              className="flex items-center justify-center gap-2"
+            >
+              <ArrowDownLeft className="w-4 h-4" />
+              <span>Receive</span>
+            </Button>
+          </div>
+
           {/* Footer with details toggle */}
           <div className="flex items-center justify-between pt-4 border-t border-grey-425/50">
             <div className="flex items-center gap-2 text-xs text-grey-200">
               {isOffline ? (
                 <Badge variant="warning" size="sm">Offline</Badge>
-              ) : (
+              ) : balance ? (
                 <>
                   <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                   <span>Updated {timeAgo(lastUpdated)}</span>
                 </>
+              ) : (
+                <span>Loading...</span>
               )}
             </div>
             
@@ -115,58 +163,55 @@ export function BalanceHero() {
         title="LAVA Breakdown"
       >
         <div className="space-y-6">
-          {/* Group by chain */}
-          {Object.entries(
-            chainBalances.reduce((acc, balance) => {
-              if (!acc[balance.chain]) {
-                acc[balance.chain] = [];
-              }
-              acc[balance.chain].push(balance);
-              return acc;
-            }, {} as Record<string, typeof chainBalances>)
-          ).map(([chain, balances]) => (
-            <div key={chain}>
-              <div className="flex items-center gap-2 mb-3">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                  style={{ backgroundColor: getChainColor(chain) }}
-                >
-                  {chain === "Lava" ? (
-                    <Flame className="w-4 h-4" />
-                  ) : (
-                    chain[0]
-                  )}
-                </div>
-                <span className="font-semibold text-white">{chain}</span>
+          {/* Lava balances */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                style={{ backgroundColor: getChainColor("lava") }}
+              >
+                <Flame className="w-4 h-4" />
               </div>
-              
-              <div className="space-y-2 pl-10">
-                {balances.map((balance, idx) => (
-                  <div
-                    key={`${balance.chain}-${balance.type}-${idx}`}
-                    className="flex items-center justify-between py-2 px-3 bg-grey-650/50 rounded-xl"
-                  >
-                    <div>
-                      <p className="text-sm text-white capitalize">
-                        {balance.type === "native" ? "Liquid" : balance.type}
-                      </p>
-                      <p className="text-xs text-grey-200">
-                        {balance.type === "wrapped" ? "LAVA.w" : "LAVA"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-white">
-                        {formatLavaAmount(balance.amount)}
-                      </p>
-                      <p className="text-xs text-grey-200">
-                        {formatCurrency(balance.usdValue)}
-                      </p>
-                    </div>
+              <span className="font-semibold text-white">Lava Network</span>
+            </div>
+            
+            <div className="space-y-2 pl-10">
+              {balanceBreakdown.map((item) => (
+                <div
+                  key={item.type}
+                  className="flex items-center justify-between py-2 px-3 bg-grey-650/50 rounded-xl"
+                >
+                  <div>
+                    <p className="text-sm text-white">{item.type}</p>
+                    <p className="text-xs text-grey-200">{item.description}</p>
                   </div>
-                ))}
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-white">
+                      {formatLavaAmount(item.amount)}
+                    </p>
+                    <p className="text-xs text-grey-200">
+                      {formatCurrency(item.amount * lavaPrice)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Total */}
+          <div className="p-4 bg-lava-orange/10 border border-lava-orange/20 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-white">Total</span>
+              <div className="text-right">
+                <p className="text-lg font-bold text-white">
+                  {formatLavaAmount(totalLava)} LAVA
+                </p>
+                <p className="text-sm text-grey-200">
+                  {formatCurrency(totalUsdValue)}
+                </p>
               </div>
             </div>
-          ))}
+          </div>
 
           {/* Disclaimer */}
           <div className="p-3 bg-grey-650/50 rounded-xl border border-grey-425/50">
@@ -180,4 +225,3 @@ export function BalanceHero() {
     </>
   );
 }
-
