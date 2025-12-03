@@ -18,11 +18,10 @@ import {
   Monitor,
   Check,
   Copy,
-  Flame,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { shortenAddress, getChainColor } from "@/lib/utils";
-import { getAddressExplorerUrl } from "@/lib/chains/lava";
+import { getAddressExplorerUrl, CHAIN_CONFIGS, type ChainId } from "@/lib/chains/registry";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -53,14 +52,15 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Currently only Lava is enabled
-  const enabledChains = [
-    { name: "Lava", enabled: true },
-    // Future chains will be added here
-    // { name: "Ethereum", enabled: false },
-    // { name: "Base", enabled: false },
-    // { name: "Arbitrum", enabled: false },
-  ];
+  // Enabled chains from config
+  const enabledChains = Object.values(CHAIN_CONFIGS)
+    .filter((chain) => chain.isEnabled)
+    .map((chain) => ({
+      name: chain.displayName,
+      chainId: chain.chainId,
+      icon: chain.chainId === 42161 ? "🔷" : "🔵",
+      enabled: true,
+    }));
 
   const handleCopyAddress = async () => {
     if (!walletAddress) return;
@@ -97,7 +97,7 @@ export default function SettingsPage() {
         {
           icon: Wallet,
           label: "Wallet & Chains",
-          value: `${enabledChains.filter((c) => c.enabled).length} chain${enabledChains.filter((c) => c.enabled).length !== 1 ? "s" : ""}`,
+          value: `${enabledChains.length} chain${enabledChains.length !== 1 ? "s" : ""}`,
           onClick: () => setShowWalletSheet(true),
         },
       ],
@@ -394,7 +394,7 @@ export default function SettingsPage() {
               Wallet Address
             </h3>
             <div className="p-4 bg-grey-650/50 rounded-xl">
-              <p className="text-xs text-grey-200 mb-2">Lava Network</p>
+              <p className="text-xs text-grey-200 mb-2">EVM Wallet (All Chains)</p>
               <div className="flex items-center gap-2">
                 <code className="text-sm text-white font-mono break-all">
                   {walletAddress || "Not connected"}
@@ -414,12 +414,12 @@ export default function SettingsPage() {
               </div>
               {walletAddress && (
                 <a
-                  href={getAddressExplorerUrl(walletAddress)}
+                  href={getAddressExplorerUrl(42161, walletAddress)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-xs text-lava-orange mt-2 hover:underline"
                 >
-                  <span>View on explorer</span>
+                  <span>View on Arbiscan</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
               )}
@@ -434,26 +434,14 @@ export default function SettingsPage() {
             <div className="space-y-2">
               {enabledChains.map((chain) => (
                 <div
-                  key={chain.name}
+                  key={chain.chainId}
                   className="flex items-center gap-3 p-3 bg-grey-650/50 rounded-xl"
                 >
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: `${getChainColor(chain.name)}20` }}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-lg"
+                    style={{ backgroundColor: `${getChainColor(chain.name.toLowerCase().split(" ")[0])}20` }}
                   >
-                    {chain.name === "Lava" ? (
-                      <Flame
-                        className="w-4 h-4"
-                        style={{ color: getChainColor(chain.name) }}
-                      />
-                    ) : (
-                      <span
-                        className="text-sm font-bold"
-                        style={{ color: getChainColor(chain.name) }}
-                      >
-                        {chain.name[0]}
-                      </span>
-                    )}
+                    {chain.icon}
                   </div>
                   <span className="flex-1 text-sm text-white">{chain.name}</span>
                   <Badge variant={chain.enabled ? "success" : "default"} size="sm">
@@ -468,8 +456,8 @@ export default function SettingsPage() {
           <div className="p-3 bg-grey-650/50 rounded-xl">
             <p className="text-xs text-grey-200">
               <span className="text-grey-100 font-medium">Note:</span> Your
-              embedded wallet is secured with MPC technology. No private keys are
-              stored on this device.
+              embedded wallet is secured with MPC technology. The same address
+              is used across all EVM chains.
             </p>
           </div>
         </div>

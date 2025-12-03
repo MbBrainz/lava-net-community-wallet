@@ -134,7 +134,7 @@ export function ActivityFeed() {
                   {isIncoming ? "+" : "-"}
                   {formatTokenAmount(tx.amount)}
                 </p>
-                <p className="text-xs text-grey-200">{tx.denom}</p>
+                <p className="text-xs text-grey-200">{tx.tokenSymbol}</p>
               </div>
             </motion.div>
           );

@@ -7,41 +7,61 @@ import {
   ExternalLink,
   Info,
   ChevronRight,
-  Lock,
-  Unlock,
-  Gift,
-  Shield,
   Zap,
-  AlertTriangle,
+  RefreshCw,
+  ArrowRightLeft,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { formatLavaAmount, formatCurrency } from "@/lib/utils";
+import { formatTokenAmount, formatCurrency, getChainColor } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Sheet, Modal } from "@/components/ui/Modal";
+import { LAVA_TOKEN_ADDRESS, getTokenExplorerUrl } from "@/lib/chains/registry";
+
+// Mock LAVA price - in production this would come from a price feed
+const LAVA_PRICE_USD = 0.0847;
 
 export default function LavaPage() {
   const {
-    totalLava,
-    totalUsdValue,
-    availableLava,
-    stakedLava,
-    rewardsLava,
-    stakedPercentage,
+    totalLavaBalance,
+    arbitrumLavaBalance,
+    baseLavaBalance,
     deFiApps,
     isOffline,
+    refreshBalance,
+    isRefreshing,
   } = useApp();
 
-  const [showStakeModal, setShowStakeModal] = useState(false);
+  const [showBridgeModal, setShowBridgeModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [stakeAmount, setStakeAmount] = useState("");
 
   const riskColors = {
     Low: "success",
     Medium: "warning",
     High: "danger",
   } as const;
+
+  // Calculate USD values
+  const totalUsdValue = totalLavaBalance * LAVA_PRICE_USD;
+
+  // Chain balances for display
+  const chainBalances = [
+    {
+      name: "Arbitrum",
+      chainId: 42161,
+      balance: arbitrumLavaBalance,
+      icon: "🔷",
+      color: getChainColor("arbitrum"),
+    },
+    {
+      name: "Base",
+      chainId: 8453,
+      balance: baseLavaBalance,
+      icon: "🔵",
+      color: getChainColor("base"),
+    },
+  ];
 
   return (
     <div className="min-h-screen pb-4">
@@ -51,14 +71,23 @@ export default function LavaPage() {
         animate={{ opacity: 1, y: 0 }}
         className="px-4 pt-4 pb-2"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-lava-gradient flex items-center justify-center">
-            <Flame className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-lava-gradient flex items-center justify-center">
+              <Flame className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">LAVA</h1>
+              <p className="text-sm text-grey-200">Manage your LAVA tokens</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-white">LAVA</h1>
-            <p className="text-sm text-grey-200">Manage & grow your position</p>
-          </div>
+          <button
+            onClick={() => refreshBalance()}
+            disabled={isRefreshing || isOffline}
+            className="p-2 text-grey-200 hover:text-white hover:bg-grey-425/50 rounded-lg transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`} />
+          </button>
         </div>
       </motion.header>
 
@@ -74,108 +103,89 @@ export default function LavaPage() {
               <div>
                 <p className="text-sm text-grey-200">Total LAVA</p>
                 <p className="text-2xl font-bold text-white">
-                  {formatLavaAmount(totalLava)}
+                  {formatTokenAmount(totalLavaBalance)}
                 </p>
                 <p className="text-sm text-grey-100">
                   {formatCurrency(totalUsdValue)}
                 </p>
               </div>
               <div className="text-right">
-                <div className="flex items-center gap-2 mb-1">
-                  <Lock className="w-4 h-4 text-lava-orange" />
-                  <span className="text-sm text-grey-200">Staked</span>
-                </div>
+                <p className="text-xs text-grey-200 mb-1">Price</p>
                 <p className="text-lg font-semibold text-white">
-                  {stakedPercentage.toFixed(1)}%
-                </p>
-                <p className="text-xs text-grey-200">
-                  {formatLavaAmount(stakedLava)} LAVA
+                  ${LAVA_PRICE_USD.toFixed(4)}
                 </p>
               </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="h-2 bg-grey-650 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${stakedPercentage}%` }}
-                transition={{ delay: 0.3, duration: 0.5 }}
-                className="h-full bg-lava-gradient rounded-full"
-              />
-            </div>
-            <div className="flex justify-between mt-2 text-xs text-grey-200">
-              <span>Available: {formatLavaAmount(availableLava)}</span>
-              <span>Staked: {formatLavaAmount(stakedLava)}</span>
+            {/* Chain breakdown */}
+            <div className="space-y-2">
+              {chainBalances.map((chain) => (
+                <div
+                  key={chain.chainId}
+                  className="flex items-center justify-between py-2 px-3 bg-grey-650/50 rounded-lg"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{chain.icon}</span>
+                    <span className="text-sm text-grey-100">{chain.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-white">
+                      {formatTokenAmount(chain.balance)} LAVA
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </Card>
         </motion.div>
 
-        {/* Native Staking Section */}
+        {/* Quick Actions */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-white">Native Staking</h2>
-            <Badge variant="lava">12-18% APY</Badge>
+          <h2 className="text-lg font-semibold text-white mb-3">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => setShowBridgeModal(true)}
+              variant="secondary"
+              className="flex-col h-auto py-4"
+              disabled={isOffline || totalLavaBalance <= 0}
+            >
+              <ArrowRightLeft className="w-5 h-5 mb-1" />
+              <span>Bridge</span>
+            </Button>
+            <a
+              href={getTokenExplorerUrl(42161, LAVA_TOKEN_ADDRESS)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button
+                variant="secondary"
+                className="flex-col h-auto py-4 w-full"
+              >
+                <ExternalLink className="w-5 h-5 mb-1" />
+                <span>View Token</span>
+              </Button>
+            </a>
           </div>
+        </motion.section>
 
+        {/* Token Info */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
           <Card variant="glass">
-            <div className="space-y-4">
-              {/* Rewards */}
-              {rewardsLava > 0 && (
-                <div className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                      <Gift className="w-5 h-5 text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">
-                        Claimable Rewards
-                      </p>
-                      <p className="text-xs text-grey-200">
-                        Accumulated staking rewards
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-green-400">
-                      +{formatLavaAmount(rewardsLava)}
-                    </p>
-                    <Button size="sm" className="mt-1" disabled={isOffline}>
-                      Claim
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Staking Actions */}
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  onClick={() => setShowStakeModal(true)}
-                  className="flex-col h-auto py-4"
-                  disabled={availableLava <= 0 || isOffline}
-                >
-                  <Lock className="w-5 h-5 mb-1" />
-                  <span>Stake</span>
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="flex-col h-auto py-4"
-                  disabled={stakedLava <= 0 || isOffline}
-                >
-                  <Unlock className="w-5 h-5 mb-1" />
-                  <span>Unstake</span>
-                </Button>
-              </div>
-
-              {/* Info */}
-              <div className="flex items-start gap-3 p-3 bg-grey-650/50 rounded-xl">
-                <Info className="w-5 h-5 text-grey-200 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-grey-200 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-white mb-1">About LAVA Token</p>
                 <p className="text-xs text-grey-200">
-                  Staking LAVA secures the network and earns you rewards. 
-                  The unbonding period is 21 days.
+                  LAVA is the native token of Lava Network, available on Arbitrum and Base.
+                  Contract: <code className="text-lava-orange">0x11e9...1af</code>
                 </p>
               </div>
             </div>
@@ -256,74 +266,48 @@ export default function LavaPage() {
         </motion.section>
       </div>
 
-      {/* Stake Modal */}
+      {/* Bridge Modal */}
       <Sheet
-        isOpen={showStakeModal}
-        onClose={() => setShowStakeModal(false)}
-        title="Stake LAVA"
+        isOpen={showBridgeModal}
+        onClose={() => setShowBridgeModal(false)}
+        title="Bridge LAVA"
       >
         <div className="space-y-5">
-          {/* Amount input */}
-          <div>
-            <label className="block text-sm text-grey-200 mb-2">Amount</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={stakeAmount}
-                onChange={(e) => setStakeAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full bg-grey-650 border border-grey-425 rounded-xl px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-lava-orange transition-colors"
-              />
-              <button
-                onClick={() => setStakeAmount(availableLava.toString())}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-lava-orange font-semibold"
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-grey-650 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <ArrowRightLeft className="w-8 h-8 text-grey-200" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Bridge Coming Soon
+            </h3>
+            <p className="text-sm text-grey-200">
+              Cross-chain bridging for LAVA will be available soon. In the meantime,
+              you can use third-party bridges.
+            </p>
+          </div>
+
+          {/* External bridges */}
+          <div className="space-y-2">
+            <p className="text-sm text-grey-200">Popular bridges:</p>
+            {[
+              { name: "Arbitrum Bridge", url: "https://bridge.arbitrum.io" },
+              { name: "Base Bridge", url: "https://bridge.base.org" },
+            ].map((bridge) => (
+              <a
+                key={bridge.name}
+                href={bridge.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-3 bg-grey-650/50 rounded-xl hover:bg-grey-650 transition-colors"
               >
-                MAX
-              </button>
-            </div>
-            <p className="text-xs text-grey-200 mt-2">
-              Available: {formatLavaAmount(availableLava)} LAVA
-            </p>
+                <span className="text-sm text-white">{bridge.name}</span>
+                <ExternalLink className="w-4 h-4 text-grey-200" />
+              </a>
+            ))}
           </div>
 
-          {/* Validator selection (mock) */}
-          <div>
-            <label className="block text-sm text-grey-200 mb-2">Validator</label>
-            <div className="flex items-center gap-3 p-3 bg-grey-650 border border-grey-425 rounded-xl">
-              <div className="w-10 h-10 bg-lava-orange/20 rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-lava-orange" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-white">Lava Foundation</p>
-                <p className="text-xs text-grey-200">5% commission • 99.9% uptime</p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-grey-200" />
-            </div>
-          </div>
-
-          {/* Summary */}
-          <div className="p-4 bg-grey-650/50 rounded-xl space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-grey-200">Estimated APY</span>
-              <span className="text-green-400 font-medium">~15.2%</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-grey-200">Unbonding Period</span>
-              <span className="text-white">21 days</span>
-            </div>
-          </div>
-
-          {/* Warning */}
-          <div className="flex items-start gap-3 p-3 bg-lava-yellow/10 border border-lava-yellow/20 rounded-xl">
-            <AlertTriangle className="w-5 h-5 text-lava-yellow flex-shrink-0" />
-            <p className="text-xs text-grey-100">
-              Staking transactions will be signed using your embedded wallet.
-              Once staked, tokens are locked for the unbonding period.
-            </p>
-          </div>
-
-          <Button fullWidth size="lg" disabled={!stakeAmount || parseFloat(stakeAmount) <= 0}>
-            Stake LAVA
+          <Button fullWidth variant="secondary" onClick={() => setShowBridgeModal(false)}>
+            Close
           </Button>
         </div>
       </Sheet>
@@ -337,7 +321,7 @@ export default function LavaPage() {
         <div className="space-y-5">
           {/* Intro */}
           <p className="text-sm text-grey-200">
-            Your Lava Wallet can connect to any dApp that supports WalletConnect.
+            Your embedded wallet can connect to any dApp that supports WalletConnect.
             Here&apos;s how:
           </p>
 
@@ -346,26 +330,26 @@ export default function LavaPage() {
             {[
               {
                 step: 1,
-                title: "Install Lava Wallet",
-                desc: "Add this app to your home screen for the best experience",
-                icon: "📱",
-              },
-              {
-                step: 2,
                 title: "Open dApp in Browser",
-                desc: "Navigate to Aave, Uniswap, or any supported dApp in Safari/Chrome",
+                desc: "Navigate to Aave, Uniswap, or any supported dApp",
                 icon: "🌐",
               },
               {
-                step: 3,
+                step: 2,
                 title: "Click Connect Wallet",
-                desc: 'Look for "WalletConnect" or "Lava Wallet" option',
+                desc: 'Look for "WalletConnect" option',
                 icon: "🔗",
               },
               {
+                step: 3,
+                title: "Scan QR or Copy Link",
+                desc: "Use your mobile wallet to scan or copy the WC link",
+                icon: "📱",
+              },
+              {
                 step: 4,
-                title: "Approve in Lava App",
-                desc: "The app will open for you to approve the connection",
+                title: "Approve Connection",
+                desc: "Review and approve the connection request",
                 icon: "✅",
               },
             ].map((item) => (
@@ -388,8 +372,8 @@ export default function LavaPage() {
               <span className="text-sm font-medium text-white">Pro Tip</span>
             </div>
             <p className="text-xs text-grey-200">
-              Once connected, your Lava Wallet will automatically sign transactions
-              when you approve them in the app.
+              Make sure you&apos;re connected to the right network (Arbitrum or Base)
+              before interacting with dApps.
             </p>
           </div>
 
