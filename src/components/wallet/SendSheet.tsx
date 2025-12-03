@@ -8,29 +8,33 @@ import {
   AlertCircle,
   Scan,
   User,
+  ChevronDown,
 } from "lucide-react";
 import { Sheet } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
-import { formatLavaAmount } from "@/lib/utils";
-import { isValidLavaAddress, LAVA_CHAIN_CONFIG } from "@/lib/chains/lava";
-import { WalletBalance } from "@/lib/wallet";
+import { useApp } from "@/context/AppContext";
+import { isValidAddress } from "@/lib/wallet";
+import { formatTokenAmount } from "@/lib/utils";
+import { type ChainId, CHAIN_CONFIGS } from "@/lib/chains/registry";
 
 interface SendSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  balance: WalletBalance | null;
 }
 
-export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
+export function SendSheet({ isOpen, onClose }: SendSheetProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { arbitrumLavaBalance, baseLavaBalance, totalLavaBalance } = useApp();
 
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
+  const [selectedChain, setSelectedChain] = useState<ChainId>(42161); // Default to Arbitrum
   const [error, setError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const [showChainSelector, setShowChainSelector] = useState(false);
 
   // Reset form when sheet closes
   useEffect(() => {
@@ -39,16 +43,24 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
       setAmount("");
       setMemo("");
       setError(null);
+      setSelectedChain(42161);
     }
   }, [isOpen]);
 
-  // Available balance for sending
-  const availableBalance = balance?.available || 0;
+  // Get balance for selected chain
+  const getChainBalance = (chainId: ChainId) => {
+    if (chainId === 42161) return arbitrumLavaBalance;
+    if (chainId === 8453) return baseLavaBalance;
+    return 0;
+  };
 
-  // Validate recipient address
+  const availableBalance = getChainBalance(selectedChain);
+  const chainConfig = CHAIN_CONFIGS[selectedChain];
+
+  // Validate recipient address (EVM format)
   const validateRecipient = (address: string): boolean => {
     if (!address) return false;
-    return isValidLavaAddress(address);
+    return isValidAddress(address);
   };
 
   // Validate amount
@@ -61,9 +73,7 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
 
   // Handle max button
   const handleMax = () => {
-    // Leave some for gas fees
-    const maxAmount = Math.max(0, availableBalance - 0.01);
-    setAmount(maxAmount.toFixed(6));
+    setAmount(availableBalance.toString());
     setError(null);
   };
 
@@ -94,12 +104,12 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
       }
 
       if (!validateRecipient(recipient)) {
-        setError("Invalid Lava address format");
+        setError("Invalid address format");
         return;
       }
 
       // Check if sending to self
-      if (recipient === user?.walletAddress) {
+      if (recipient.toLowerCase() === user?.walletAddress?.toLowerCase()) {
         setError("Cannot send to your own address");
         return;
       }
@@ -113,7 +123,7 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
       const numAmount = parseFloat(amount);
 
       if (numAmount > availableBalance) {
-        setError("Insufficient balance");
+        setError("Insufficient balance on selected chain");
         return;
       }
 
@@ -123,6 +133,8 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
         amount: numAmount.toString(),
         recipient,
         memo: memo || "",
+        chainId: selectedChain.toString(),
+        token: "LAVA",
         returnUrl: "/",
       });
 
@@ -142,11 +154,70 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
     validateRecipient(recipient) &&
     amount &&
     validateAmount(amount) &&
-    recipient !== user?.walletAddress;
+    recipient.toLowerCase() !== user?.walletAddress?.toLowerCase();
+
+  // Chain options
+  const chainOptions = [
+    { chainId: 42161 as ChainId, name: "Arbitrum", balance: arbitrumLavaBalance, icon: "🔷" },
+    { chainId: 8453 as ChainId, name: "Base", balance: baseLavaBalance, icon: "🔵" },
+  ];
 
   return (
     <Sheet isOpen={isOpen} onClose={onClose} title="Send LAVA">
       <div className="space-y-5">
+        {/* Chain selector */}
+        <div>
+          <label className="block text-sm text-grey-200 mb-2">From Chain</label>
+          <button
+            onClick={() => setShowChainSelector(!showChainSelector)}
+            className="w-full flex items-center justify-between bg-grey-650 border border-grey-425 rounded-xl px-4 py-3 text-white hover:border-grey-200 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-lg">
+                {chainOptions.find((c) => c.chainId === selectedChain)?.icon}
+              </span>
+              <div className="text-left">
+                <p className="text-sm font-medium">{chainConfig.displayName}</p>
+                <p className="text-xs text-grey-200">
+                  {formatTokenAmount(availableBalance)} LAVA available
+                </p>
+              </div>
+            </div>
+            <ChevronDown className={`w-5 h-5 text-grey-200 transition-transform ${showChainSelector ? "rotate-180" : ""}`} />
+          </button>
+          
+          {showChainSelector && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-2 space-y-1"
+            >
+              {chainOptions.map((chain) => (
+                <button
+                  key={chain.chainId}
+                  onClick={() => {
+                    setSelectedChain(chain.chainId);
+                    setShowChainSelector(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors ${
+                    selectedChain === chain.chainId
+                      ? "bg-lava-orange/20 border border-lava-orange/40"
+                      : "bg-grey-650/50 hover:bg-grey-650"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{chain.icon}</span>
+                    <span className="text-sm text-white">{chain.name}</span>
+                  </div>
+                  <span className="text-sm text-grey-200">
+                    {formatTokenAmount(chain.balance)} LAVA
+                  </span>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </div>
+
         {/* Recipient input */}
         <div>
           <label className="block text-sm text-grey-200 mb-2">Recipient</label>
@@ -156,7 +227,7 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
               type="text"
               value={recipient}
               onChange={(e) => handleRecipientChange(e.target.value)}
-              placeholder={`${LAVA_CHAIN_CONFIG.bech32Prefix}1...`}
+              placeholder="0x..."
               className="w-full bg-grey-650 border border-grey-425 rounded-xl pl-11 pr-12 py-3 text-white placeholder:text-grey-200 focus:outline-none focus:border-lava-orange transition-colors font-mono text-sm"
             />
             <button
@@ -197,7 +268,7 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
             </div>
           </div>
           <p className="text-xs text-grey-200 mt-2">
-            Available: {formatLavaAmount(availableBalance)} LAVA
+            Available on {chainConfig.displayName}: {formatTokenAmount(availableBalance)} LAVA
           </p>
         </div>
 
@@ -238,12 +309,16 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
             <div className="flex justify-between text-sm">
               <span className="text-grey-200">You&apos;ll send</span>
               <span className="text-white font-medium">
-                {formatLavaAmount(parseFloat(amount))} LAVA
+                {formatTokenAmount(parseFloat(amount))} LAVA
               </span>
             </div>
             <div className="flex justify-between text-sm">
+              <span className="text-grey-200">On chain</span>
+              <span className="text-white">{chainConfig.displayName}</span>
+            </div>
+            <div className="flex justify-between text-sm">
               <span className="text-grey-200">Network fee</span>
-              <span className="text-white">~0.001 LAVA</span>
+              <span className="text-white">~0.0001 ETH</span>
             </div>
           </motion.div>
         )}
@@ -263,4 +338,3 @@ export function SendSheet({ isOpen, onClose, balance }: SendSheetProps) {
     </Sheet>
   );
 }
-

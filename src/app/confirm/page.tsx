@@ -17,21 +17,21 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { shortenAddress, formatLavaAmount } from "@/lib/utils";
-import { getTxExplorerUrl, LAVA_CHAIN_CONFIG } from "@/lib/chains/lava";
+import { shortenAddress, formatTokenAmount } from "@/lib/utils";
+import { getTxExplorerUrl, CHAIN_CONFIGS, type ChainId } from "@/lib/chains/registry";
 
 // Transaction types that this view can handle
-type TransactionType = "send" | "receive" | "stake" | "unstake" | "claim" | "connect";
+type TransactionType = "send" | "receive" | "swap" | "approve";
 
 interface TransactionDetails {
   type: TransactionType;
   amount?: number;
   recipient?: string;
   sender?: string;
-  validator?: string;
   memo?: string;
   estimatedFee?: number;
-  chainName?: string;
+  chainId?: ChainId;
+  token?: string;
 }
 
 type ConfirmationStatus = "pending" | "signing" | "broadcasting" | "success" | "error";
@@ -46,11 +46,15 @@ function ConfirmPageContent() {
   const amount = parseFloat(searchParams.get("amount") || "0");
   const recipient = searchParams.get("recipient") || "";
   const memo = searchParams.get("memo") || "";
+  const chainId = parseInt(searchParams.get("chainId") || "42161") as ChainId;
+  const token = searchParams.get("token") || "LAVA";
   const returnUrl = searchParams.get("returnUrl") || "/";
 
   const [status, setStatus] = useState<ConfirmationStatus>("pending");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+
+  const chainConfig = CHAIN_CONFIGS[chainId] || CHAIN_CONFIGS[42161];
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -65,8 +69,9 @@ function ConfirmPageContent() {
     amount,
     recipient,
     memo,
-    estimatedFee: 0.001, // Estimated gas fee in LAVA
-    chainName: "Lava",
+    estimatedFee: 0.0001, // Estimated gas fee in ETH
+    chainId,
+    token,
   };
 
   // Get icon for transaction type
@@ -86,14 +91,10 @@ function ConfirmPageContent() {
     switch (txType) {
       case "send":
         return "Confirm Send";
-      case "stake":
-        return "Confirm Stake";
-      case "unstake":
-        return "Confirm Unstake";
-      case "claim":
-        return "Confirm Claim";
-      case "connect":
-        return "Confirm Connection";
+      case "swap":
+        return "Confirm Swap";
+      case "approve":
+        return "Confirm Approval";
       default:
         return "Confirm Transaction";
     }
@@ -116,7 +117,7 @@ function ConfirmPageContent() {
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       // Simulate success
-      const mockTxHash = "LAVA" + Math.random().toString(36).substring(2, 15).toUpperCase();
+      const mockTxHash = "0x" + Math.random().toString(16).substring(2, 66);
       setTxHash(mockTxHash);
       setStatus("success");
     } catch (error) {
@@ -158,7 +159,7 @@ function ConfirmPageContent() {
 
           <h1 className="text-2xl font-bold text-white mb-2">Transaction Sent!</h1>
           <p className="text-grey-200 mb-6">
-            Your transaction has been broadcast to the network
+            Your transaction has been broadcast to {chainConfig.displayName}
           </p>
 
           {txHash && (
@@ -166,12 +167,12 @@ function ConfirmPageContent() {
               <p className="text-xs text-grey-200 mb-1">Transaction Hash</p>
               <p className="text-sm text-white font-mono break-all">{txHash}</p>
               <a
-                href={getTxExplorerUrl(txHash)}
+                href={getTxExplorerUrl(chainId, txHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1 text-sm text-lava-orange mt-3 hover:underline"
               >
-                <span>View in Explorer</span>
+                <span>View on {chainConfig.displayName.split(" ")[0]}scan</span>
                 <ExternalLink className="w-4 h-4" />
               </a>
             </Card>
@@ -252,9 +253,9 @@ function ConfirmPageContent() {
           </div>
           <div className="flex items-baseline justify-center gap-2">
             <span className="text-4xl font-bold text-white">
-              {formatLavaAmount(amount)}
+              {formatTokenAmount(amount)}
             </span>
-            <span className="text-xl text-lava-orange">LAVA</span>
+            <span className="text-xl text-lava-orange">{token}</span>
           </div>
         </motion.div>
 
@@ -287,7 +288,13 @@ function ConfirmPageContent() {
               {/* Chain */}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-grey-200">Network</span>
-                <span className="text-sm text-white">{LAVA_CHAIN_CONFIG.chainName}</span>
+                <span className="text-sm text-white">{chainConfig.displayName}</span>
+              </div>
+
+              {/* Token */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-grey-200">Token</span>
+                <span className="text-sm text-white">{token}</span>
               </div>
 
               {/* Memo */}
@@ -307,7 +314,7 @@ function ConfirmPageContent() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-grey-200">Estimated Fee</span>
                 <span className="text-sm text-white">
-                  ~{txDetails.estimatedFee} LAVA
+                  ~{txDetails.estimatedFee} ETH
                 </span>
               </div>
             </div>
@@ -315,7 +322,7 @@ function ConfirmPageContent() {
         </motion.div>
 
         {/* Warning for large amounts */}
-        {amount > 1000 && (
+        {amount > 10000 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -387,4 +394,3 @@ export default function ConfirmPage() {
     </Suspense>
   );
 }
-

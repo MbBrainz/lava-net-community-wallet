@@ -1,104 +1,170 @@
 // Chain Registry
-// Unified interface for managing multiple chain configurations
-// Designed for easy EVM chain addition in the near future
+// Configuration for supported EVM chains and tokens
 
-export type ChainType = "cosmos" | "evm";
+// LAVA Token contract address (same on Arbitrum and Base)
+export const LAVA_TOKEN_ADDRESS = "0x11e969e9b3f89cb16d686a03cd8508c9fc0361af" as const;
+
+// Standard ERC20 ABI for balance queries
+export const ERC20_ABI = [
+  {
+    constant: true,
+    inputs: [{ name: "_owner", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "balance", type: "uint256" }],
+    type: "function",
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: "decimals",
+    outputs: [{ name: "", type: "uint8" }],
+    type: "function",
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: "symbol",
+    outputs: [{ name: "", type: "string" }],
+    type: "function",
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: "name",
+    outputs: [{ name: "", type: "string" }],
+    type: "function",
+  },
+] as const;
+
+export type ChainId = 42161 | 8453; // Arbitrum One | Base
+
+export interface TokenConfig {
+  address: `0x${string}`;
+  symbol: string;
+  name: string;
+  decimals: number;
+  logoUrl?: string;
+}
 
 export interface ChainConfig {
-  id: string;
-  type: ChainType;
+  chainId: ChainId;
   name: string;
   displayName: string;
   rpcUrl: string;
-  restUrl?: string; // Cosmos only
-  nativeDenom: string;
-  displayDenom: string;
-  decimals: number;
-  bech32Prefix?: string; // Cosmos only
-  chainIdNumber?: number; // EVM only
-  explorerUrl: string;
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
+  blockExplorerUrl: string;
   iconPath: string;
   color: string;
   isEnabled: boolean;
+  isDefault?: boolean;
+  tokens: TokenConfig[];
 }
 
-// Registry of all supported chains
-export const CHAIN_REGISTRY: Record<string, ChainConfig> = {
-  lava: {
-    id: "lava-mainnet-1",
-    type: "cosmos",
-    name: "lava",
-    displayName: "Lava Network",
-    rpcUrl: process.env.NEXT_PUBLIC_LAVA_RPC_URL || "",
-    restUrl: process.env.NEXT_PUBLIC_LAVA_REST_URL || "",
-    nativeDenom: "ulava",
-    displayDenom: "LAVA",
-    decimals: 6,
-    bech32Prefix: "lava",
-    explorerUrl: "https://lava.explorers.guru",
-    iconPath: "/lava-brand-kit/logos/logo-symbol-color.png",
-    color: "#FF3900",
+// Chain configurations
+export const CHAIN_CONFIGS: Record<ChainId, ChainConfig> = {
+  // Arbitrum One (Main Chain)
+  42161: {
+    chainId: 42161,
+    name: "arbitrum",
+    displayName: "Arbitrum One",
+    rpcUrl: process.env.NEXT_PUBLIC_ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    blockExplorerUrl: "https://arbiscan.io",
+    iconPath: "/icons/arbitrum.svg",
+    color: "#12AAFF",
     isEnabled: true,
+    isDefault: true,
+    tokens: [
+      {
+        address: LAVA_TOKEN_ADDRESS,
+        symbol: "LAVA",
+        name: "Lava Token",
+        decimals: 18,
+        logoUrl: "/lava-brand-kit/logos/logo-symbol-color.png",
+      },
+    ],
   },
-  // EVM chains will be added here soon
-  // ethereum: {
-  //   id: "1",
-  //   type: "evm",
-  //   name: "ethereum",
-  //   displayName: "Ethereum",
-  //   rpcUrl: process.env.NEXT_PUBLIC_ETH_RPC_URL || "",
-  //   nativeDenom: "wei",
-  //   displayDenom: "ETH",
-  //   decimals: 18,
-  //   chainIdNumber: 1,
-  //   explorerUrl: "https://etherscan.io",
-  //   iconPath: "/icons/ethereum.svg",
-  //   color: "#627EEA",
-  //   isEnabled: false,
-  // },
+  // Base
+  8453: {
+    chainId: 8453,
+    name: "base",
+    displayName: "Base",
+    rpcUrl: process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    blockExplorerUrl: "https://basescan.org",
+    iconPath: "/icons/base.svg",
+    color: "#0052FF",
+    isEnabled: true,
+    tokens: [
+      {
+        address: LAVA_TOKEN_ADDRESS,
+        symbol: "LAVA",
+        name: "Lava Token",
+        decimals: 18,
+        logoUrl: "/lava-brand-kit/logos/logo-symbol-color.png",
+      },
+    ],
+  },
 };
 
 // Get all enabled chains
 export function getEnabledChains(): ChainConfig[] {
-  return Object.values(CHAIN_REGISTRY).filter((chain) => chain.isEnabled);
+  return Object.values(CHAIN_CONFIGS).filter((chain) => chain.isEnabled);
+}
+
+// Get the default chain
+export function getDefaultChain(): ChainConfig {
+  return Object.values(CHAIN_CONFIGS).find((chain) => chain.isDefault) || CHAIN_CONFIGS[42161];
 }
 
 // Get chain by ID
-export function getChainById(chainId: string): ChainConfig | undefined {
-  return Object.values(CHAIN_REGISTRY).find((chain) => chain.id === chainId);
+export function getChainById(chainId: number): ChainConfig | undefined {
+  return CHAIN_CONFIGS[chainId as ChainId];
 }
 
 // Get chain by name
 export function getChainByName(name: string): ChainConfig | undefined {
-  return CHAIN_REGISTRY[name.toLowerCase()];
-}
-
-// Get all Cosmos chains
-export function getCosmosChains(): ChainConfig[] {
-  return Object.values(CHAIN_REGISTRY).filter(
-    (chain) => chain.type === "cosmos" && chain.isEnabled
+  return Object.values(CHAIN_CONFIGS).find(
+    (chain) => chain.name.toLowerCase() === name.toLowerCase()
   );
 }
 
-// Get all EVM chains (for future use)
-export function getEvmChains(): ChainConfig[] {
-  return Object.values(CHAIN_REGISTRY).filter(
-    (chain) => chain.type === "evm" && chain.isEnabled
-  );
+// Format amount from smallest unit (wei) to display unit
+export function formatFromWei(amount: bigint, decimals: number = 18): number {
+  return Number(amount) / Math.pow(10, decimals);
 }
 
-// Format amount from smallest unit to display unit
-export function formatAmount(amount: string | number, chainName: string): number {
-  const chain = getChainByName(chainName);
-  if (!chain) return 0;
-  const value = typeof amount === "string" ? parseInt(amount, 10) : amount;
-  return value / Math.pow(10, chain.decimals);
+// Convert display amount to wei
+export function toWei(amount: number, decimals: number = 18): bigint {
+  return BigInt(Math.floor(amount * Math.pow(10, decimals)));
 }
 
-// Convert display amount to smallest unit
-export function toSmallestUnit(amount: number, chainName: string): string {
-  const chain = getChainByName(chainName);
-  if (!chain) return "0";
-  return Math.floor(amount * Math.pow(10, chain.decimals)).toString();
+// Get explorer URL for transaction
+export function getTxExplorerUrl(chainId: ChainId, txHash: string): string {
+  const chain = CHAIN_CONFIGS[chainId];
+  return `${chain.blockExplorerUrl}/tx/${txHash}`;
 }
 
+// Get explorer URL for address
+export function getAddressExplorerUrl(chainId: ChainId, address: string): string {
+  const chain = CHAIN_CONFIGS[chainId];
+  return `${chain.blockExplorerUrl}/address/${address}`;
+}
+
+// Get explorer URL for token
+export function getTokenExplorerUrl(chainId: ChainId, tokenAddress: string): string {
+  const chain = CHAIN_CONFIGS[chainId];
+  return `${chain.blockExplorerUrl}/token/${tokenAddress}`;
+}

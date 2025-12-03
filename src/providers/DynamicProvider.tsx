@@ -2,32 +2,28 @@
 
 import { ReactNode } from "react";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
-import { CosmosWalletConnectors } from "@dynamic-labs/cosmos";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
-import { LAVA_CHAIN_CONFIG } from "@/lib/chains/lava";
+import { CHAIN_CONFIGS, getDefaultChain } from "@/lib/chains/registry";
 
 interface DynamicProviderProps {
   children: ReactNode;
 }
 
-// Custom Lava Network chain configuration for Dynamic SDK
-const lavaNetworkConfig = {
-  blockExplorerUrls: [LAVA_CHAIN_CONFIG.explorerUrl],
-  chainId: LAVA_CHAIN_CONFIG.chainId,
-  chainName: LAVA_CHAIN_CONFIG.chainName,
-  iconUrls: ["/lava-brand-kit/logos/logo-symbol-color.png"],
-  name: LAVA_CHAIN_CONFIG.chainName,
-  nativeCurrency: {
-    decimals: LAVA_CHAIN_CONFIG.decimals,
-    denom: LAVA_CHAIN_CONFIG.denom,
-    name: LAVA_CHAIN_CONFIG.displayDenom,
-    symbol: LAVA_CHAIN_CONFIG.displayDenom,
-  },
-  networkId: LAVA_CHAIN_CONFIG.chainId,
-  rpcUrls: [LAVA_CHAIN_CONFIG.rpcUrl],
-  vanityName: "Lava",
-  shortName: "lava",
-};
+// Build EVM networks configuration for Dynamic SDK
+const evmNetworks = Object.values(CHAIN_CONFIGS)
+  .filter((chain) => chain.isEnabled)
+  .map((chain) => ({
+    chainId: chain.chainId,
+    name: chain.displayName,
+    rpcUrls: [chain.rpcUrl],
+    nativeCurrency: chain.nativeCurrency,
+    blockExplorerUrls: [chain.blockExplorerUrl],
+    iconUrls: [chain.iconPath],
+    networkId: chain.chainId,
+    vanityName: chain.name,
+  }));
+
+const defaultChain = getDefaultChain();
 
 export function DynamicProvider({ children }: DynamicProviderProps) {
   const environmentId = process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID;
@@ -54,11 +50,11 @@ export function DynamicProvider({ children }: DynamicProviderProps) {
     <DynamicContextProvider
       settings={{
         environmentId,
-        walletConnectors: [CosmosWalletConnectors, EthereumWalletConnectors],
+        walletConnectors: [EthereumWalletConnectors],
 
-        // Override networks to include Lava
+        // Configure EVM networks with Arbitrum as default
         overrides: {
-          cosmosNetworks: [lavaNetworkConfig],
+          evmNetworks,
         },
 
         // Events configuration

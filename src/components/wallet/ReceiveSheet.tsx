@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Copy, Check, Share2, Download, ExternalLink } from "lucide-react";
+import { Copy, Check, Share2, Download } from "lucide-react";
 import { Sheet } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
 import { shortenAddress } from "@/lib/utils";
-import { getAddressExplorerUrl, LAVA_CHAIN_CONFIG } from "@/lib/chains/lava";
 
 interface ReceiveSheetProps {
   isOpen: boolean;
@@ -101,8 +100,8 @@ export function ReceiveSheet({ isOpen, onClose }: ReceiveSheetProps) {
 
     try {
       await navigator.share({
-        title: "My Lava Wallet Address",
-        text: `My Lava wallet address: ${walletAddress}`,
+        title: "My Wallet Address",
+        text: `My wallet address: ${walletAddress}`,
       });
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
@@ -116,13 +115,13 @@ export function ReceiveSheet({ isOpen, onClose }: ReceiveSheetProps) {
     if (!qrCodeDataUrl) return;
 
     const link = document.createElement("a");
-    link.download = `lava-wallet-${shortenAddress(walletAddress, 4)}.png`;
+    link.download = `wallet-${shortenAddress(walletAddress, 4)}.png`;
     link.href = qrCodeDataUrl;
     link.click();
   };
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} title="Receive LAVA">
+    <Sheet isOpen={isOpen} onClose={onClose} title="Receive">
       <div className="space-y-6">
         {/* QR Code */}
         <div className="flex justify-center">
@@ -146,10 +145,10 @@ export function ReceiveSheet({ isOpen, onClose }: ReceiveSheetProps) {
 
         {/* Address display */}
         <div className="text-center">
-          <p className="text-sm text-grey-200 mb-2">Your Lava Address</p>
+          <p className="text-sm text-grey-200 mb-2">Your Wallet Address</p>
           <div className="p-4 bg-grey-650 rounded-xl">
             <code className="text-sm text-white font-mono break-all">
-              {walletAddress}
+              {walletAddress || "No wallet connected"}
             </code>
           </div>
         </div>
@@ -159,6 +158,7 @@ export function ReceiveSheet({ isOpen, onClose }: ReceiveSheetProps) {
           <Button
             variant="secondary"
             onClick={handleCopy}
+            disabled={!walletAddress}
             className="flex flex-col items-center gap-1 h-auto py-3"
           >
             {copied ? (
@@ -172,6 +172,7 @@ export function ReceiveSheet({ isOpen, onClose }: ReceiveSheetProps) {
           <Button
             variant="secondary"
             onClick={handleShare}
+            disabled={!walletAddress}
             className="flex flex-col items-center gap-1 h-auto py-3"
           >
             <Share2 className="w-5 h-5" />
@@ -189,27 +190,15 @@ export function ReceiveSheet({ isOpen, onClose }: ReceiveSheetProps) {
           </Button>
         </div>
 
-        {/* Explorer link */}
-        <a
-          href={getAddressExplorerUrl(walletAddress)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 text-sm text-lava-orange hover:text-lava-spanish-orange transition-colors"
-        >
-          <span>View on Explorer</span>
-          <ExternalLink className="w-4 h-4" />
-        </a>
-
         {/* Info */}
         <div className="p-3 bg-grey-650/50 rounded-xl">
           <p className="text-xs text-grey-200">
-            <span className="text-grey-100 font-medium">Note:</span> Only send{" "}
-            {LAVA_CHAIN_CONFIG.displayDenom} tokens to this address. Sending other
-            tokens may result in permanent loss.
+            <span className="text-grey-100 font-medium">Note:</span> Only send
+            compatible tokens to this address. Sending incompatible tokens may
+            result in permanent loss.
           </p>
         </div>
       </div>
     </Sheet>
   );
 }
-

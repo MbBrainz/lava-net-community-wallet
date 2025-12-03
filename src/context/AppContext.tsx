@@ -9,17 +9,16 @@ import React, {
   ReactNode,
 } from "react";
 import { useAuth, AuthUser } from "@/context/AuthContext";
-import { fetchLavaBalance, clearBalanceCache } from "@/lib/services/balance";
 import {
-  fetchTransactionHistory,
-  clearTransactionCache,
-} from "@/lib/services/transactions";
-import { WalletBalance, WalletTransaction } from "@/lib/wallet";
+  fetchBalanceWithCache,
+  clearBalanceCache,
+  type MultiChainBalance,
+} from "@/lib/services/balance";
+import { WalletTransaction } from "@/lib/wallet";
 import {
   mockCommunityPosts,
   mockNotifications,
   mockDeFiApps,
-  MOCK_LAVA_PRICE,
   type CommunityPost,
   type Notification,
   type DeFiApp,
@@ -41,21 +40,19 @@ interface AppContextType {
 
   // Wallet & Balance data
   walletAddress: string | null;
-  balance: WalletBalance | null;
-  lavaPrice: number;
+  multiChainBalance: MultiChainBalance | null;
   lastUpdated: Date;
   refreshBalance: () => Promise<void>;
   isRefreshing: boolean;
 
   // Computed balance values
-  totalLava: number;
-  totalUsdValue: number;
-  availableLava: number;
-  stakedLava: number;
-  rewardsLava: number;
-  stakedPercentage: number;
+  totalLavaBalance: number;
+  arbitrumLavaBalance: number;
+  baseLavaBalance: number;
+  arbitrumEthBalance: number;
+  baseEthBalance: number;
 
-  // Transactions
+  // Transactions (placeholder for now)
   transactions: WalletTransaction[];
   refreshTransactions: () => Promise<void>;
 
@@ -109,12 +106,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   } = useAuth();
 
   // Balance state
-  const [balance, setBalance] = useState<WalletBalance | null>(null);
-  const [lavaPrice] = useState(MOCK_LAVA_PRICE); // TODO: Fetch real price
+  const [multiChainBalance, setMultiChainBalance] = useState<MultiChainBalance | null>(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Transactions
+  // Transactions (placeholder)
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
 
   // Community (mocked)
@@ -153,40 +149,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const walletAddress = user?.walletAddress || null;
 
   // Computed balance values
-  const totalLava = balance?.total || 0;
-  const availableLava = balance?.available || 0;
-  const stakedLava = balance?.staked || 0;
-  const rewardsLava = balance?.rewards || 0;
-  const totalUsdValue = totalLava * lavaPrice;
-  const stakedPercentage = totalLava > 0 ? (stakedLava / totalLava) * 100 : 0;
+  const totalLavaBalance = multiChainBalance?.totalLavaBalance || 0;
+
+  const arbitrumLavaBalance = multiChainBalance?.chains
+    .find((c) => c.chainId === 42161)
+    ?.tokens.find((t) => t.symbol === "LAVA")?.balanceFormatted || 0;
+
+  const baseLavaBalance = multiChainBalance?.chains
+    .find((c) => c.chainId === 8453)
+    ?.tokens.find((t) => t.symbol === "LAVA")?.balanceFormatted || 0;
+
+  const arbitrumEthBalance = multiChainBalance?.chains
+    .find((c) => c.chainId === 42161)?.nativeBalanceFormatted || 0;
+
+  const baseEthBalance = multiChainBalance?.chains
+    .find((c) => c.chainId === 8453)?.nativeBalanceFormatted || 0;
 
   // Fetch balance when wallet address changes
   useEffect(() => {
     const fetchData = async () => {
       if (walletAddress && isAuthenticated && !isOffline) {
-        // Fetch balance
         try {
-          const newBalance = await fetchLavaBalance(walletAddress, true);
-          setBalance(newBalance);
+          console.log("[AppContext] Fetching balance for:", walletAddress);
+          const balance = await fetchBalanceWithCache(walletAddress as `0x${string}`, true);
+          setMultiChainBalance(balance);
           setLastUpdated(new Date());
+          console.log("[AppContext] Balance fetched:", balance);
         } catch (error) {
           console.error("[AppContext] Failed to fetch balance:", error);
         }
-        
-        // Fetch transactions
-        try {
-          const txHistory = await fetchTransactionHistory(walletAddress, true);
-          setTransactions(txHistory);
-        } catch (error) {
-          console.error("[AppContext] Failed to fetch transactions:", error);
-        }
       } else {
         // Clear data when logged out
-        setBalance(null);
+        setMultiChainBalance(null);
         setTransactions([]);
       }
     };
-    
+
     fetchData();
   }, [walletAddress, isAuthenticated, isOffline]);
 
@@ -196,8 +194,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setIsRefreshing(true);
     try {
-      const newBalance = await fetchLavaBalance(walletAddress, true);
-      setBalance(newBalance);
+      const balance = await fetchBalanceWithCache(walletAddress as `0x${string}`, true);
+      setMultiChainBalance(balance);
       setLastUpdated(new Date());
     } catch (error) {
       console.error("[AppContext] Failed to refresh balance:", error);
@@ -206,16 +204,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [walletAddress, isOffline]);
 
-  // Refresh transactions
+  // Refresh transactions (placeholder)
   const refreshTransactions = useCallback(async () => {
     if (!walletAddress || isOffline) return;
-
-    try {
-      const txHistory = await fetchTransactionHistory(walletAddress, true);
-      setTransactions(txHistory);
-    } catch (error) {
-      console.error("[AppContext] Failed to refresh transactions:", error);
-    }
+    // TODO: Implement transaction fetching from block explorer APIs
   }, [walletAddress, isOffline]);
 
   // Logout handler
@@ -223,10 +215,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Clear caches
     if (walletAddress) {
       clearBalanceCache(walletAddress);
-      clearTransactionCache(walletAddress);
     }
     // Clear local state
-    setBalance(null);
+    setMultiChainBalance(null);
     setTransactions([]);
     // Call auth logout
     await authLogout();
@@ -347,17 +338,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         user,
         logout,
         walletAddress,
-        balance,
-        lavaPrice,
+        multiChainBalance,
         lastUpdated,
         refreshBalance,
         isRefreshing,
-        totalLava,
-        totalUsdValue,
-        availableLava,
-        stakedLava,
-        rewardsLava,
-        stakedPercentage,
+        totalLavaBalance,
+        arbitrumLavaBalance,
+        baseLavaBalance,
+        arbitrumEthBalance,
+        baseEthBalance,
         transactions,
         refreshTransactions,
         communityPosts,

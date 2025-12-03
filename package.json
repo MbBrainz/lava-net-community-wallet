@@ -10,11 +10,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@cosmjs/amino": "^0.37.0",
-    "@cosmjs/encoding": "^0.37.0",
-    "@cosmjs/proto-signing": "^0.37.0",
-    "@cosmjs/stargate": "^0.37.0",
-    "@dynamic-labs/cosmos": "^4.48.1",
     "@dynamic-labs/ethereum": "^4.48.1",
     "@dynamic-labs/sdk-react-core": "^4.48.1",
     "@serwist/next": "^9.0.10",
@@ -26,14 +21,17 @@
     "framer-motion": "^11.11.17",
     "lucide-react": "^0.460.0",
     "next": "^15.0.3",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "serwist": "^9.0.10",
-    "tailwind-merge": "^2.5.5"
+    "tailwind-merge": "^2.5.5",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
     "@types/node": "^22.9.1",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^8.48.1",

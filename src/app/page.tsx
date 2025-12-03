@@ -12,7 +12,7 @@ import { SendSheet } from "@/components/wallet/SendSheet";
 import { ReceiveSheet } from "@/components/wallet/ReceiveSheet";
 
 export default function HomePage() {
-  const { user, isOffline, balance } = useApp();
+  const { user, isOffline } = useApp();
   
   // Send/Receive sheet state
   const [showSendSheet, setShowSendSheet] = useState(false);
@@ -76,7 +76,6 @@ export default function HomePage() {
       <SendSheet
         isOpen={showSendSheet}
         onClose={() => setShowSendSheet(false)}
-        balance={balance}
       />
 
       {/* Receive Sheet */}

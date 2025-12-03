@@ -38,7 +38,7 @@ export interface DeFiApp {
 }
 
 // Mock LAVA price
-export const MOCK_LAVA_PRICE = 0.0847;
+export const MOCK_LAVA_PRICE = 0.136784;
 
 // Mock community posts
 export const mockCommunityPosts: CommunityPost[] = [

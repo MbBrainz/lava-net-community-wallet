@@ -1,179 +1,247 @@
-// Balance Service
-// Fetches and manages wallet balances from Lava RPC
-//
-// Error Handling: All functions throw exceptions on failure.
-// Callers should wrap in try/catch.
+// EVM Balance Service
+// Fetches native and token balances across multiple EVM chains using viem
 
-import { LAVA_CHAIN_CONFIG, formatLavaFromMicro } from "@/lib/chains/lava";
-import { WalletBalance } from "@/lib/wallet";
+import { createPublicClient, http, formatUnits, type PublicClient } from "viem";
+import { arbitrum, base } from "viem/chains";
+import {
+  CHAIN_CONFIGS,
+  ERC20_ABI,
+  LAVA_TOKEN_ADDRESS,
+  formatFromWei,
+  type ChainId,
+  type ChainConfig,
+} from "@/lib/chains/registry";
 
-// Custom error class for balance service errors
-export class BalanceServiceError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
-    super(message);
-    this.name = "BalanceServiceError";
+// Balance types
+export interface TokenBalance {
+  symbol: string;
+  name: string;
+  balance: bigint;
+  balanceFormatted: number;
+  decimals: number;
+  contractAddress: `0x${string}`;
+  logoUrl?: string;
+}
+
+export interface ChainBalance {
+  chainId: ChainId;
+  chainName: string;
+  nativeBalance: bigint;
+  nativeBalanceFormatted: number;
+  nativeSymbol: string;
+  tokens: TokenBalance[];
+  lastUpdated: Date;
+}
+
+export interface MultiChainBalance {
+  address: string;
+  chains: ChainBalance[];
+  totalLavaBalance: number;
+  lastUpdated: Date;
+}
+
+// Viem chain configs
+const viemChains = {
+  42161: arbitrum,
+  8453: base,
+} as const;
+
+// Create a public client for a chain
+function createClient(chainId: ChainId): PublicClient {
+  const chainConfig = CHAIN_CONFIGS[chainId];
+  const viemChain = viemChains[chainId];
+
+  return createPublicClient({
+    chain: viemChain,
+    transport: http(chainConfig.rpcUrl),
+  });
+}
+
+// Fetch native balance for an address on a specific chain
+export async function fetchNativeBalance(
+  address: `0x${string}`,
+  chainId: ChainId
+): Promise<{ balance: bigint; formatted: number }> {
+  const client = createClient(chainId);
+  const chainConfig = CHAIN_CONFIGS[chainId];
+
+  try {
+    const balance = await client.getBalance({ address });
+    const formatted = formatFromWei(balance, chainConfig.nativeCurrency.decimals);
+
+    console.log(`[Balance] Native balance on ${chainConfig.displayName}:`, {
+      balance: balance.toString(),
+      formatted,
+    });
+
+    return { balance, formatted };
+  } catch (error) {
+    console.error(`[Balance] Failed to fetch native balance on ${chainConfig.displayName}:`, error);
+    throw error;
   }
 }
 
-// REST API response types
-interface BalanceResponse {
-  balances: Array<{
-    denom: string;
-    amount: string;
-  }>;
+// Fetch ERC20 token balance
+export async function fetchTokenBalance(
+  address: `0x${string}`,
+  tokenAddress: `0x${string}`,
+  chainId: ChainId
+): Promise<TokenBalance> {
+  const client = createClient(chainId);
+  const chainConfig = CHAIN_CONFIGS[chainId];
+  const tokenConfig = chainConfig.tokens.find(
+    (t) => t.address.toLowerCase() === tokenAddress.toLowerCase()
+  );
+
+  try {
+    // Read balance
+    const balance = await client.readContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [address],
+    });
+
+    // Get decimals (use config or read from contract)
+    const decimals = tokenConfig?.decimals || 18;
+
+    const balanceFormatted = Number(formatUnits(balance, decimals));
+
+    console.log(`[Balance] Token balance on ${chainConfig.displayName}:`, {
+      token: tokenConfig?.symbol || "Unknown",
+      balance: balance.toString(),
+      balanceFormatted,
+    });
+
+    return {
+      symbol: tokenConfig?.symbol || "UNKNOWN",
+      name: tokenConfig?.name || "Unknown Token",
+      balance,
+      balanceFormatted,
+      decimals,
+      contractAddress: tokenAddress,
+      logoUrl: tokenConfig?.logoUrl,
+    };
+  } catch (error) {
+    console.error(
+      `[Balance] Failed to fetch token balance on ${chainConfig.displayName}:`,
+      error
+    );
+    // Return zero balance on error
+    return {
+      symbol: tokenConfig?.symbol || "UNKNOWN",
+      name: tokenConfig?.name || "Unknown Token",
+      balance: 0n,
+      balanceFormatted: 0,
+      decimals: tokenConfig?.decimals || 18,
+      contractAddress: tokenAddress,
+      logoUrl: tokenConfig?.logoUrl,
+    };
+  }
 }
 
-interface DelegationsResponse {
-  delegation_responses: Array<{
-    delegation: {
-      delegator_address: string;
-      validator_address: string;
-      shares: string;
-    };
-    balance: {
-      denom: string;
-      amount: string;
-    };
-  }>;
+// Fetch all balances for a single chain
+export async function fetchChainBalance(
+  address: `0x${string}`,
+  chainId: ChainId
+): Promise<ChainBalance> {
+  const chainConfig = CHAIN_CONFIGS[chainId];
+
+  console.log(`[Balance] Fetching balances on ${chainConfig.displayName} for ${address}`);
+
+  // Fetch native balance
+  const { balance: nativeBalance, formatted: nativeBalanceFormatted } = await fetchNativeBalance(
+    address,
+    chainId
+  );
+
+  // Fetch all token balances for this chain
+  const tokenBalances = await Promise.all(
+    chainConfig.tokens.map((token) => fetchTokenBalance(address, token.address, chainId))
+  );
+
+  return {
+    chainId,
+    chainName: chainConfig.displayName,
+    nativeBalance,
+    nativeBalanceFormatted,
+    nativeSymbol: chainConfig.nativeCurrency.symbol,
+    tokens: tokenBalances,
+    lastUpdated: new Date(),
+  };
 }
 
-interface RewardsResponse {
-  rewards: Array<{
-    validator_address: string;
-    reward: Array<{
-      denom: string;
-      amount: string;
-    }>;
-  }>;
-  total: Array<{
-    denom: string;
-    amount: string;
-  }>;
+// Fetch balances across all enabled chains
+export async function fetchMultiChainBalance(
+  address: `0x${string}`
+): Promise<MultiChainBalance> {
+  const enabledChains = Object.values(CHAIN_CONFIGS).filter((chain) => chain.isEnabled);
+
+  console.log(`[Balance] Fetching multi-chain balances for ${address}`);
+  console.log(`[Balance] Enabled chains:`, enabledChains.map((c) => c.displayName));
+
+  // Fetch balances from all chains in parallel
+  const chainBalances = await Promise.all(
+    enabledChains.map((chain) => fetchChainBalance(address, chain.chainId))
+  );
+
+  // Calculate total LAVA balance across all chains
+  const totalLavaBalance = chainBalances.reduce((total, chain) => {
+    const lavaToken = chain.tokens.find((t) => t.symbol === "LAVA");
+    return total + (lavaToken?.balanceFormatted || 0);
+  }, 0);
+
+  console.log(`[Balance] Total LAVA across all chains:`, totalLavaBalance);
+
+  return {
+    address,
+    chains: chainBalances,
+    totalLavaBalance,
+    lastUpdated: new Date(),
+  };
+}
+
+// Fetch only LAVA token balance across chains (lighter query)
+export async function fetchLavaBalance(
+  address: `0x${string}`
+): Promise<{ arbitrum: number; base: number; total: number }> {
+  console.log(`[Balance] Fetching LAVA balances for ${address}`);
+
+  const [arbitrumBalance, baseBalance] = await Promise.all([
+    fetchTokenBalance(address, LAVA_TOKEN_ADDRESS, 42161),
+    fetchTokenBalance(address, LAVA_TOKEN_ADDRESS, 8453),
+  ]);
+
+  const result = {
+    arbitrum: arbitrumBalance.balanceFormatted,
+    base: baseBalance.balanceFormatted,
+    total: arbitrumBalance.balanceFormatted + baseBalance.balanceFormatted,
+  };
+
+  console.log(`[Balance] LAVA balances:`, result);
+
+  return result;
 }
 
 // Cache for balance data
-interface BalanceCache {
-  data: WalletBalance;
-  timestamp: number;
-}
-
-const balanceCache = new Map<string, BalanceCache>();
+const balanceCache = new Map<string, { data: MultiChainBalance; timestamp: number }>();
 const CACHE_TTL = 30000; // 30 seconds
 
-// Fetch available balance from REST API
-async function fetchAvailableBalance(address: string): Promise<number> {
-  const restUrl = LAVA_CHAIN_CONFIG.restUrl;
-  if (!restUrl) {
-    throw new BalanceServiceError("REST URL not configured");
-  }
-
-  const response = await fetch(
-    `${restUrl}/cosmos/bank/v1beta1/balances/${address}`
-  );
-
-  if (!response.ok) {
-    throw new BalanceServiceError(
-      `Failed to fetch available balance: HTTP ${response.status}`
-    );
-  }
-
-  const data: BalanceResponse = await response.json();
-  const lavaBalance = data.balances.find(
-    (b) => b.denom === LAVA_CHAIN_CONFIG.denom
-  );
-
-  return lavaBalance ? formatLavaFromMicro(lavaBalance.amount) : 0;
-}
-
-// Fetch staked balance from REST API
-async function fetchStakedBalance(address: string): Promise<number> {
-  const restUrl = LAVA_CHAIN_CONFIG.restUrl;
-  if (!restUrl) {
-    throw new BalanceServiceError("REST URL not configured");
-  }
-
-  const response = await fetch(
-    `${restUrl}/cosmos/staking/v1beta1/delegations/${address}`
-  );
-
-  if (!response.ok) {
-    throw new BalanceServiceError(
-      `Failed to fetch staked balance: HTTP ${response.status}`
-    );
-  }
-
-  const data: DelegationsResponse = await response.json();
-  const totalStaked = data.delegation_responses.reduce((sum, del) => {
-    if (del.balance.denom === LAVA_CHAIN_CONFIG.denom) {
-      return sum + parseInt(del.balance.amount, 10);
-    }
-    return sum;
-  }, 0);
-
-  return formatLavaFromMicro(totalStaked);
-}
-
-// Fetch pending rewards from REST API
-async function fetchRewards(address: string): Promise<number> {
-  const restUrl = LAVA_CHAIN_CONFIG.restUrl;
-  if (!restUrl) {
-    throw new BalanceServiceError("REST URL not configured");
-  }
-
-  const response = await fetch(
-    `${restUrl}/cosmos/distribution/v1beta1/delegators/${address}/rewards`
-  );
-
-  if (!response.ok) {
-    throw new BalanceServiceError(
-      `Failed to fetch rewards: HTTP ${response.status}`
-    );
-  }
-
-  const data: RewardsResponse = await response.json();
-  const lavaReward = data.total.find(
-    (r) => r.denom === LAVA_CHAIN_CONFIG.denom
-  );
-
-  // Rewards come as decimal strings, need to parse and convert
-  return lavaReward
-    ? formatLavaFromMicro(Math.floor(parseFloat(lavaReward.amount)))
-    : 0;
-}
-
-// Main function to fetch complete balance
-export async function fetchLavaBalance(
-  address: string,
+// Fetch balances with caching
+export async function fetchBalanceWithCache(
+  address: `0x${string}`,
   forceRefresh = false
-): Promise<WalletBalance> {
-  // Check cache first
-  const cacheKey = `lava:${address}`;
+): Promise<MultiChainBalance> {
+  const cacheKey = address.toLowerCase();
   const cached = balanceCache.get(cacheKey);
 
   if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log(`[Balance] Returning cached balance for ${address}`);
     return cached.data;
   }
 
-  // Fetch all balances in parallel
-  const [available, staked, rewards] = await Promise.all([
-    fetchAvailableBalance(address),
-    fetchStakedBalance(address),
-    fetchRewards(address),
-  ]);
+  const balance = await fetchMultiChainBalance(address);
 
-  const balance: WalletBalance = {
-    chainName: "lava",
-    chainType: "cosmos",
-    address,
-    available,
-    staked,
-    rewards,
-    total: available + staked + rewards,
-    denom: LAVA_CHAIN_CONFIG.displayDenom,
-    lastUpdated: new Date(),
-  };
-
-  // Update cache
   balanceCache.set(cacheKey, {
     data: balance,
     timestamp: Date.now(),
@@ -182,44 +250,12 @@ export async function fetchLavaBalance(
   return balance;
 }
 
-// Clear balance cache for an address
+// Clear balance cache
 export function clearBalanceCache(address?: string): void {
   if (address) {
-    balanceCache.delete(`lava:${address}`);
+    balanceCache.delete(address.toLowerCase());
   } else {
     balanceCache.clear();
   }
 }
 
-// Subscribe to balance updates (polling-based for now)
-export function subscribeToBalance(
-  address: string,
-  callback: (balance: WalletBalance) => void,
-  intervalMs = 30000
-): () => void {
-  let isActive = true;
-
-  const poll = async () => {
-    if (!isActive) return;
-
-    try {
-      const balance = await fetchLavaBalance(address, true);
-      callback(balance);
-    } catch (error) {
-      console.error("[BalanceService] Polling error:", error);
-      // Continue polling even on error
-    }
-
-    if (isActive) {
-      setTimeout(poll, intervalMs);
-    }
-  };
-
-  // Initial fetch
-  poll();
-
-  // Return unsubscribe function
-  return () => {
-    isActive = false;
-  };
-}

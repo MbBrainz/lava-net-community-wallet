@@ -27,7 +27,7 @@ export function formatCurrency(amount: number, currency = "USD"): string {
   }).format(amount);
 }
 
-export function formatLavaAmount(amount: number): string {
+export function formatTokenAmount(amount: number): string {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,

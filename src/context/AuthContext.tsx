@@ -17,7 +17,6 @@ import {
   useConnectWithOtp,
   useEmbeddedWallet,
 } from "@dynamic-labs/sdk-react-core";
-import { isCosmosWallet, CosmosWalletConnector } from "@dynamic-labs/cosmos";
 
 // Types
 export interface AuthUser {
@@ -29,7 +28,7 @@ export interface AuthUser {
 
 export interface WalletInfo {
   address: string;
-  chainType: "cosmos" | "evm";
+  chainType: "evm";
   chainId: string;
   isConnected: boolean;
 }
@@ -44,7 +43,6 @@ interface AuthContextType {
   // Wallet state
   primaryWallet: WalletInfo | null;
   wallets: WalletInfo[];
-  cosmosWallet: CosmosWalletConnector | null;
   hasEmbeddedWallet: boolean;
   isCreatingWallet: boolean;
 
@@ -134,7 +132,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log("[Auth] User logged in without embedded wallet, creating one...");
         
         try {
-          // Create embedded wallet - Dynamic will create for enabled chains
+          // Create embedded wallet - Dynamic will create for enabled chains (EVM)
           await createEmbeddedWallet();
           console.log("[Auth] Embedded wallet created successfully");
         } catch (error) {
@@ -161,9 +159,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const user: AuthUser | null = useMemo(() => {
     if (!dynamicUser || !dynamicUser.userId) return null;
 
-    // Get the Cosmos wallet address if available
-    const cosmosWallet = userWallets.find((w) => isCosmosWallet(w));
-    const walletAddress = cosmosWallet?.address || primaryWallet?.address || null;
+    // Get the EVM wallet address if available
+    const walletAddress = primaryWallet?.address || null;
 
     return {
       id: dynamicUser.userId,
@@ -171,13 +168,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       walletAddress,
       createdAt: new Date(), // Use current date as fallback
     };
-  }, [dynamicUser, userWallets, primaryWallet]);
+  }, [dynamicUser, primaryWallet]);
 
   // Transform wallets to our format
   const wallets: WalletInfo[] = useMemo(() => {
     return userWallets.map((wallet) => ({
       address: wallet.address,
-      chainType: isCosmosWallet(wallet) ? "cosmos" : "evm",
+      chainType: "evm" as const,
       chainId: wallet.chain || "unknown",
       isConnected: true, // Embedded wallets are always considered connected
     }));
@@ -188,20 +185,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!primaryWallet) return null;
     return {
       address: primaryWallet.address,
-      chainType: isCosmosWallet(primaryWallet) ? "cosmos" : "evm",
+      chainType: "evm" as const,
       chainId: primaryWallet.chain || "unknown",
       isConnected: true, // Embedded wallets are always considered connected
     };
   }, [primaryWallet]);
-
-  // Get Cosmos wallet connector for signing
-  const cosmosWallet: CosmosWalletConnector | null = useMemo(() => {
-    const wallet = userWallets.find((w) => isCosmosWallet(w));
-    if (wallet && isCosmosWallet(wallet)) {
-      return wallet.connector as CosmosWalletConnector;
-    }
-    return null;
-  }, [userWallets]);
 
   // Send OTP to email - initiates headless OTP flow
   const sendOtpToEmail = useCallback(async (email: string) => {
@@ -298,7 +286,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     primaryWallet: primaryWalletInfo,
     wallets,
-    cosmosWallet,
     hasEmbeddedWallet,
     isCreatingWallet,
     sendOtpToEmail,

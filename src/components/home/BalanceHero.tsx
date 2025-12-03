@@ -4,11 +4,14 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw, ChevronDown, Flame, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { formatLavaAmount, formatCurrency, getChainColor, timeAgo } from "@/lib/utils";
+import { formatTokenAmount, formatCurrency, timeAgo, getChainColor } from "@/lib/utils";
 import { Sheet } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import Image from "next/image";
+
+// Mock LAVA price - in production this would come from a price feed
+const LAVA_PRICE_USD = 0.0847;
 
 interface BalanceHeroProps {
   onSend?: () => void;
@@ -17,17 +20,16 @@ interface BalanceHeroProps {
 
 export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
   const {
-    totalLava,
-    totalUsdValue,
-    availableLava,
-    stakedLava,
-    rewardsLava,
-    lavaPrice,
+    totalLavaBalance,
+    arbitrumLavaBalance,
+    baseLavaBalance,
+    arbitrumEthBalance,
+    baseEthBalance,
     lastUpdated,
     refreshBalance,
     isRefreshing,
     isOffline,
-    balance,
+    multiChainBalance,
   } = useApp();
 
   const [showDetails, setShowDetails] = useState(false);
@@ -37,22 +39,26 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
     await refreshBalance();
   };
 
+  // Calculate USD value
+  const totalUsdValue = totalLavaBalance * LAVA_PRICE_USD;
+
   // Build balance breakdown for the sheet
-  const balanceBreakdown = [
+  const chainBalances = [
     {
-      type: "Available",
-      amount: availableLava,
-      description: "Ready to send or stake",
+      chain: "Arbitrum",
+      chainId: 42161,
+      lavaBalance: arbitrumLavaBalance,
+      ethBalance: arbitrumEthBalance,
+      color: getChainColor("arbitrum"),
+      icon: "🔷",
     },
     {
-      type: "Staked",
-      amount: stakedLava,
-      description: "Earning rewards",
-    },
-    {
-      type: "Rewards",
-      amount: rewardsLava,
-      description: "Claimable",
+      chain: "Base",
+      chainId: 8453,
+      lavaBalance: baseLavaBalance,
+      ethBalance: baseEthBalance,
+      color: getChainColor("base"),
+      icon: "🔵",
     },
   ];
 
@@ -81,9 +87,9 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
                 />
               </div>
               <div>
-                <h2 className="text-sm font-medium text-grey-100">Total LAVA Position</h2>
+                <h2 className="text-sm font-medium text-grey-100">Total LAVA Balance</h2>
                 <p className="text-xs text-grey-200">
-                  ${lavaPrice.toFixed(4)} per LAVA
+                  ${LAVA_PRICE_USD.toFixed(4)} per LAVA
                 </p>
               </div>
             </div>
@@ -101,7 +107,7 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
           <div className="mb-4">
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold text-white tracking-tight">
-                {formatLavaAmount(totalLava)}
+                {formatTokenAmount(totalLavaBalance)}
               </span>
               <span className="text-xl font-semibold text-lava-orange">LAVA</span>
             </div>
@@ -110,12 +116,26 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
             </p>
           </div>
 
+          {/* Chain badges */}
+          <div className="flex gap-2 mb-4">
+            {arbitrumLavaBalance > 0 && (
+              <Badge variant="default" size="sm" className="bg-[#12AAFF]/20 text-[#12AAFF]">
+                🔷 {formatTokenAmount(arbitrumLavaBalance)} on Arbitrum
+              </Badge>
+            )}
+            {baseLavaBalance > 0 && (
+              <Badge variant="default" size="sm" className="bg-[#0052FF]/20 text-[#0052FF]">
+                🔵 {formatTokenAmount(baseLavaBalance)} on Base
+              </Badge>
+            )}
+          </div>
+
           {/* Send/Receive buttons */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <Button
               onClick={onSend}
               className="flex items-center justify-center gap-2"
-              disabled={availableLava <= 0}
+              disabled={totalLavaBalance <= 0}
             >
               <ArrowUpRight className="w-4 h-4" />
               <span>Send</span>
@@ -135,7 +155,7 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
             <div className="flex items-center gap-2 text-xs text-grey-200">
               {isOffline ? (
                 <Badge variant="warning" size="sm">Offline</Badge>
-              ) : balance ? (
+              ) : multiChainBalance ? (
                 <>
                   <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                   <span>Updated {timeAgo(lastUpdated)}</span>
@@ -160,37 +180,42 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
       <Sheet
         isOpen={showDetails}
         onClose={() => setShowDetails(false)}
-        title="LAVA Breakdown"
+        title="Balance Breakdown"
       >
         <div className="space-y-6">
-          {/* Lava balances */}
+          {/* LAVA Token Section */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                style={{ backgroundColor: getChainColor("lava") }}
-              >
-                <Flame className="w-4 h-4" />
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-lava-gradient flex items-center justify-center">
+                <Flame className="w-4 h-4 text-white" />
               </div>
-              <span className="font-semibold text-white">Lava Network</span>
+              <div>
+                <span className="font-semibold text-white">LAVA Token</span>
+                <p className="text-xs text-grey-200">Across all chains</p>
+              </div>
             </div>
             
-            <div className="space-y-2 pl-10">
-              {balanceBreakdown.map((item) => (
+            <div className="space-y-2">
+              {chainBalances.map((chain) => (
                 <div
-                  key={item.type}
-                  className="flex items-center justify-between py-2 px-3 bg-grey-650/50 rounded-xl"
+                  key={chain.chainId}
+                  className="flex items-center justify-between py-3 px-4 bg-grey-650/50 rounded-xl"
                 >
-                  <div>
-                    <p className="text-sm text-white">{item.type}</p>
-                    <p className="text-xs text-grey-200">{item.description}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{chain.icon}</span>
+                    <div>
+                      <p className="text-sm text-white">{chain.chain}</p>
+                      <p className="text-xs text-grey-200">
+                        {chain.ethBalance.toFixed(6)} ETH available
+                      </p>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-white">
-                      {formatLavaAmount(item.amount)}
+                      {formatTokenAmount(chain.lavaBalance)} LAVA
                     </p>
                     <p className="text-xs text-grey-200">
-                      {formatCurrency(item.amount * lavaPrice)}
+                      {formatCurrency(chain.lavaBalance * LAVA_PRICE_USD)}
                     </p>
                   </div>
                 </div>
@@ -201,10 +226,10 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
           {/* Total */}
           <div className="p-4 bg-lava-orange/10 border border-lava-orange/20 rounded-xl">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-white">Total</span>
+              <span className="font-medium text-white">Total LAVA</span>
               <div className="text-right">
                 <p className="text-lg font-bold text-white">
-                  {formatLavaAmount(totalLava)} LAVA
+                  {formatTokenAmount(totalLavaBalance)} LAVA
                 </p>
                 <p className="text-sm text-grey-200">
                   {formatCurrency(totalUsdValue)}
@@ -213,11 +238,12 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
             </div>
           </div>
 
-          {/* Disclaimer */}
+          {/* Info about token */}
           <div className="p-3 bg-grey-650/50 rounded-xl border border-grey-425/50">
             <p className="text-xs text-grey-200">
-              <span className="text-grey-100 font-medium">Note:</span> Balances are fetched from 
-              on-chain data and may have slight delays. Staking rewards update every epoch.
+              <span className="text-grey-100 font-medium">LAVA Token:</span> The native token 
+              of Lava Network, available on Arbitrum and Base at address{" "}
+              <code className="text-lava-orange text-[10px]">0x11e9...1af</code>
             </p>
           </div>
         </div>

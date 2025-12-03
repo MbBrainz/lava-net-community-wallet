@@ -4,34 +4,30 @@ import { motion } from "framer-motion";
 import {
   ArrowUpRight,
   ArrowDownLeft,
-  Lock,
-  Unlock,
-  Gift,
-  ExternalLink,
+  RefreshCw,
+  Check,
   HelpCircle,
+  ExternalLink,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { formatLavaAmount, timeAgo, getChainColor } from "@/lib/utils";
+import { formatTokenAmount, timeAgo, getChainColor } from "@/lib/utils";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { WalletTransaction, TransactionStatus } from "@/lib/wallet";
-import { getTxExplorerUrl } from "@/lib/chains/lava";
 
 const txIcons: Record<WalletTransaction["type"], typeof ArrowUpRight> = {
   send: ArrowUpRight,
   receive: ArrowDownLeft,
-  stake: Lock,
-  unstake: Unlock,
-  claim: Gift,
+  swap: RefreshCw,
+  approve: Check,
   unknown: HelpCircle,
 };
 
 const txLabels: Record<WalletTransaction["type"], string> = {
   send: "Sent",
   receive: "Received",
-  stake: "Staked",
-  unstake: "Unstaked",
-  claim: "Claimed Rewards",
+  swap: "Swapped",
+  approve: "Approved",
   unknown: "Transaction",
 };
 
@@ -48,8 +44,8 @@ export function ActivityFeed() {
           <p className="text-grey-200">No recent activity</p>
           <p className="text-sm text-grey-200 mt-1">
             {isOffline 
-              ? "You&apos;re offline. Activity will load when connected."
-              : "Your LAVA transactions will appear here"
+              ? "You're offline. Activity will load when connected."
+              : "Your transactions will appear here"
             }
           </p>
         </div>
@@ -62,27 +58,24 @@ export function ActivityFeed() {
       <div className="px-4 pt-4 pb-2">
         <CardHeader>
           <CardTitle>Recent Activity</CardTitle>
-          <span className="text-xs text-grey-200">LAVA Network</span>
+          <span className="text-xs text-grey-200">EVM Network</span>
         </CardHeader>
       </div>
 
       <div className="divide-y divide-grey-425/30">
         {transactions.slice(0, 5).map((tx, index) => {
           const Icon = txIcons[tx.type];
-          const isIncoming = tx.type === "receive" || tx.type === "claim";
+          const isIncoming = tx.type === "receive";
           const isPending = tx.status === TransactionStatus.PENDING;
           const isFailed = tx.status === TransactionStatus.FAILED;
 
           return (
-            <motion.a
+            <motion.div
               key={tx.id}
-              href={getTxExplorerUrl(tx.hash)}
-              target="_blank"
-              rel="noopener noreferrer"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-grey-425/20 transition-colors cursor-pointer"
+              className="flex items-center gap-3 px-4 py-3 hover:bg-grey-425/20 transition-colors"
             >
               {/* Icon */}
               <div
@@ -139,11 +132,11 @@ export function ActivityFeed() {
                   }`}
                 >
                   {isIncoming ? "+" : "-"}
-                  {formatLavaAmount(tx.amount)}
+                  {formatTokenAmount(tx.amount)}
                 </p>
                 <p className="text-xs text-grey-200">{tx.denom}</p>
               </div>
-            </motion.a>
+            </motion.div>
           );
         })}
       </div>
