@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Copy, Check, Share2, Download } from "lucide-react";
+import QRCode from "qrcode";
 import { Sheet } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
@@ -13,78 +14,95 @@ interface ReceiveSheetProps {
   onClose: () => void;
 }
 
+// Cache key prefix for localStorage
+const QR_CACHE_KEY = "wallet_qr_cache_";
+
+// Get cached QR code from localStorage
+function getCachedQRCode(address: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const cached = localStorage.getItem(QR_CACHE_KEY + address);
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+// Save QR code to localStorage
+function setCachedQRCode(address: string, dataUrl: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(QR_CACHE_KEY + address, dataUrl);
+  } catch (error) {
+    console.warn("[ReceiveSheet] Could not cache QR code:", error);
+  }
+}
+
 export function ReceiveSheet({ isOpen, onClose }: ReceiveSheetProps) {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [addressCopied, setAddressCopied] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
 
   const walletAddress = user?.walletAddress || "";
 
-  // Generate QR code when sheet opens
-  useEffect(() => {
-    if (isOpen && walletAddress) {
-      generateQRCode(walletAddress);
-    }
-  }, [isOpen, walletAddress]);
-
-  // Generate QR code using canvas
-  const generateQRCode = async (address: string) => {
+  // Generate QR code using the qrcode library
+  const generateQRCode = useCallback(async (address: string) => {
     try {
-      // Using a simple QR code generation approach
-      // In production, you might want to use a library like qrcode
-      const size = 200;
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-
-      if (ctx) {
-        // For now, create a placeholder with the address
-        // In production, use a proper QR code library
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, size, size);
-
-        ctx.fillStyle = "#000000";
-        ctx.font = "12px monospace";
-        ctx.textAlign = "center";
-        ctx.fillText("Scan to receive", size / 2, 20);
-        ctx.fillText(shortenAddress(address, 10), size / 2, size - 20);
-
-        // Simple placeholder pattern
-        const cellSize = 4;
-        const margin = 30;
-        const dataSize = size - margin * 2;
-        const cells = Math.floor(dataSize / cellSize);
-
-        // Generate a deterministic pattern from address
-        for (let i = 0; i < cells; i++) {
-          for (let j = 0; j < cells; j++) {
-            const charIndex = (i * cells + j) % address.length;
-            const charCode = address.charCodeAt(charIndex);
-            if (charCode % 2 === 0) {
-              ctx.fillRect(
-                margin + i * cellSize,
-                margin + j * cellSize,
-                cellSize - 1,
-                cellSize - 1
-              );
-            }
-          }
-        }
-
-        setQrCodeDataUrl(canvas.toDataURL("image/png"));
-      }
+      const dataUrl = await QRCode.toDataURL(address, {
+        width: 400,
+        margin: 2,
+        color: {
+          dark: "#000000",
+          light: "#ffffff",
+        },
+        errorCorrectionLevel: "M",
+      });
+      
+      // Cache the generated QR code
+      setCachedQRCode(address, dataUrl);
+      setQrCodeDataUrl(dataUrl);
     } catch (error) {
       console.error("[ReceiveSheet] QR code generation error:", error);
     }
-  };
+  }, []);
 
-  // Copy address to clipboard
+  // Load cached QR code immediately, then regenerate fresh one
+  useEffect(() => {
+    if (isOpen && walletAddress) {
+      // First, try to show cached QR code instantly
+      const cached = getCachedQRCode(walletAddress);
+      if (cached) {
+        setQrCodeDataUrl(cached);
+      }
+      
+      // Then generate a fresh QR code (and update cache)
+      generateQRCode(walletAddress);
+    }
+  }, [isOpen, walletAddress, generateQRCode]);
+
+  // Copy address to clipboard (for copy button)
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(walletAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("[ReceiveSheet] Copy error:", error);
+    }
+  };
+
+  // Copy address to clipboard (for address click)
+  const handleAddressCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(walletAddress);
+      setAddressCopied(true);
+      // Also trigger the copy button animation
+      setCopied(true);
+      setTimeout(() => {
+        setAddressCopied(false);
+        setCopied(false);
+      }, 2000);
     } catch (error) {
       console.error("[ReceiveSheet] Copy error:", error);
     }
@@ -135,22 +153,52 @@ export function ReceiveSheet({ isOpen, onClose }: ReceiveSheetProps) {
               <img
                 src={qrCodeDataUrl}
                 alt="Wallet QR Code"
-                className="w-48 h-48"
+                className="w-[50vw] h-[50vw] max-w-[280px] max-h-[280px]"
               />
             ) : (
-              <div className="w-48 h-48 bg-grey-100 animate-pulse rounded-lg" />
+              <div className="w-[50vw] h-[50vw] max-w-[280px] max-h-[280px] bg-grey-100 animate-pulse rounded-lg" />
             )}
           </motion.div>
         </div>
 
-        {/* Address display */}
+        {/* Address display - clickable to copy */}
         <div className="text-center">
           <p className="text-sm text-grey-200 mb-2">Your Wallet Address</p>
-          <div className="p-4 bg-grey-650 rounded-xl">
+          <motion.button
+            onClick={handleAddressCopy}
+            disabled={!walletAddress}
+            className="w-full p-4 bg-grey-650 rounded-xl cursor-pointer hover:bg-grey-600 transition-colors group relative"
+            whileTap={{ scale: 0.98 }}
+          >
             <code className="text-sm text-white font-mono break-all">
               {walletAddress || "No wallet connected"}
             </code>
-          </div>
+            
+            {/* Copy feedback overlay */}
+            <motion.div
+              initial={false}
+              animate={{
+                opacity: addressCopied ? 1 : 0,
+                scale: addressCopied ? 1 : 0.8,
+              }}
+              className="absolute inset-0 flex items-center justify-center bg-grey-650 rounded-xl"
+            >
+              <div className="flex items-center gap-2 text-green-400">
+                <Check className="w-5 h-5" />
+                <span className="text-sm font-medium">Copied!</span>
+              </div>
+            </motion.div>
+            
+            {/* Tap to copy hint */}
+            {!addressCopied && walletAddress && (
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-grey-650/80 rounded-xl">
+                <div className="flex items-center gap-2 text-grey-100">
+                  <Copy className="w-4 h-4" />
+                  <span className="text-xs">Tap to copy</span>
+                </div>
+              </div>
+            )}
+          </motion.button>
         </div>
 
         {/* Action buttons */}
@@ -161,11 +209,19 @@ export function ReceiveSheet({ isOpen, onClose }: ReceiveSheetProps) {
             disabled={!walletAddress}
             className="flex flex-col items-center gap-1 h-auto py-3"
           >
-            {copied ? (
-              <Check className="w-5 h-5 text-green-400" />
-            ) : (
-              <Copy className="w-5 h-5" />
-            )}
+            <motion.div
+              initial={false}
+              animate={{
+                scale: copied ? [1, 1.2, 1] : 1,
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              {copied ? (
+                <Check className="w-5 h-5 text-green-400" />
+              ) : (
+                <Copy className="w-5 h-5" />
+              )}
+            </motion.div>
             <span className="text-xs">{copied ? "Copied!" : "Copy"}</span>
           </Button>
 
