@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Lava Wallet",
-    short_name: "Lava",
+    short_name: "Lava Wallet",
     description: "Your community wallet for LAVA — stake, track, and connect to DeFi",
     start_url: "/",
     display: "standalone",
