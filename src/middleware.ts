@@ -177,7 +177,7 @@ export function middleware(request: NextRequest) {
       origin: request.headers.get("origin"),
       referer: request.headers.get("referer"),
       secFetchSite: request.headers.get("sec-fetch-site"),
-      ip: request.headers.get("x-forwarded-for") || request.ip,
+      ip: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip"),
     });
 
     return NextResponse.json(
