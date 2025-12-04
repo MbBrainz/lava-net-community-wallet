@@ -5,6 +5,21 @@ import { NextResponse } from "next/server";
 
 export const revalidate = 3600; // seconds (1 hour)
 
+// FreeCryptoAPI response shape
+interface FreeCryptoAPIResponse {
+  status: string;
+  symbols: Array<{
+    symbol: string;
+    last: string;
+    last_btc: string;
+    lowest: string;
+    highest: string;
+    date: string;
+    daily_change_percentage: string;
+    source_exchange: string;
+  }>;
+}
+
 export async function GET() {
   const apiKey = process.env.FREECRYPTOAPI_KEY;
 
@@ -18,10 +33,11 @@ export async function GET() {
 
   try {
     const res = await fetch(
-      "https://api.freecryptoapi.com/v1/getDataCurrency?symbol=LAVA&currency=USD",
+      "https://api.freecryptoapi.com/v1/getData?symbol=LAVA",
       {
         headers: {
-          "X-API-KEY": apiKey,
+          Accept: "*/*",
+          Authorization: `Bearer ${apiKey}`,
         },
         // Let Next cache this response for `revalidate` seconds
         next: { revalidate: 3600 },
@@ -36,12 +52,9 @@ export async function GET() {
       );
     }
 
-    const data = await res.json();
-    
-    // FreeCryptoAPI response shape - adapt if needed
-    const price = data.price ?? data.data?.price;
+    const data: FreeCryptoAPIResponse = await res.json();
 
-    if (typeof price !== "number") {
+    if (data.status !== "success" || !data.symbols?.[0]) {
       console.error("[lava-price] Unexpected response format:", data);
       return NextResponse.json(
         { error: "Unexpected response format" },
@@ -49,13 +62,25 @@ export async function GET() {
       );
     }
 
-    console.log("[lava-price] Fetched price:", price);
+    const lavaData = data.symbols[0];
+    const price = parseFloat(lavaData.last);
 
-    return NextResponse.json({ 
+    if (isNaN(price)) {
+      console.error("[lava-price] Invalid price value:", lavaData.last);
+      return NextResponse.json(
+        { error: "Invalid price data" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
       price,
       currency: "USD",
       symbol: "LAVA",
       timestamp: Date.now(),
+      dailyChange: parseFloat(lavaData.daily_change_percentage) || 0,
+      high24h: parseFloat(lavaData.highest) || null,
+      low24h: parseFloat(lavaData.lowest) || null,
     });
   } catch (error) {
     console.error("[lava-price] Error fetching price:", error);
