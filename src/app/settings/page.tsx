@@ -22,7 +22,7 @@ import { getAddressExplorerUrl, CHAIN_CONFIGS } from "@/lib/chains/registry";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Sheet } from "@/components/ui/Modal";
+import { Modal, Sheet } from "@/components/ui/Modal";
 import { ReferralSection } from "@/components/referral/ReferralSection";
 import { AdminSection } from "@/components/referral/admin/AdminSection";
 import Image from "next/image";
@@ -37,6 +37,7 @@ export default function SettingsPage() {
   } = useApp();
 
   const [showWalletSheet, setShowWalletSheet] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -324,7 +325,7 @@ export default function SettingsPage() {
           <Button
             variant="danger"
             fullWidth
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             disabled={isLoggingOut}
             className="flex items-center justify-center gap-2"
           >
@@ -419,6 +420,46 @@ export default function SettingsPage() {
           </div>
         </div>
       </Sheet>
+
+      {/* Sign Out Confirmation Modal */}
+      <Modal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        title="Sign Out"
+        size="sm"
+      >
+        <div className="space-y-6">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+              <LogOut className="w-7 h-7 text-red-500" />
+            </div>
+            <p className="text-grey-100">
+              Are you sure you want to sign out of your account?
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => setShowLogoutConfirm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              fullWidth
+              onClick={() => {
+                setShowLogoutConfirm(false);
+                handleLogout();
+              }}
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? "Signing out..." : "Sign Out"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

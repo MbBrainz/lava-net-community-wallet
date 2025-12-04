@@ -65,9 +65,19 @@ export default function LoginPage() {
   }, [isOtpPending, step]);
 
   // Focus OTP input when entering OTP step
+  // Use a small delay to ensure the animation has completed and the input is rendered
   useEffect(() => {
-    if (step === "otp" && otpInputRef.current) {
-      otpInputRef.current.focus();
+    if (step === "otp") {
+      // Small delay to allow AnimatePresence animation to complete
+      const timer = setTimeout(() => {
+        if (otpInputRef.current) {
+          otpInputRef.current.focus();
+          // For mobile: ensure keyboard shows by triggering click programmatically
+          // Some mobile browsers need this extra nudge
+          otpInputRef.current.click();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [step]);
 
@@ -397,6 +407,7 @@ export default function LoginPage() {
                       pattern="[0-9]*"
                       maxLength={OTP_LENGTH}
                       disabled={isVerifyingOtp}
+                      autoFocus
                     />
                   </div>
 

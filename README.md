@@ -113,5 +113,5 @@ This is a demo application created for UI/UX demonstration purposes.
 - [Lava Network](https://lavanet.xyz)
 - [Documentation](https://docs.lavanet.xyz)
 - [Discord](https://discord.gg/lavanetwork)
-- [Twitter](https://twitter.com/labornetwork)
+- [Twitter](https://x.com/lavanetxyz)
 

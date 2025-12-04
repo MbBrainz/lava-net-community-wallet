@@ -57,7 +57,7 @@ export default function CommunityPage() {
           {/* Social links */}
           <div className="flex items-center gap-2">
             <a
-              href="https://twitter.com/labornetwork"
+              href="https://x.com/lavanetxyz"
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 bg-grey-425/50 hover:bg-grey-425 rounded-lg transition-colors"
