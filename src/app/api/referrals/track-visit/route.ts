@@ -35,6 +35,7 @@ const { PROBABILISTIC_MATCHING } = REFERRAL_CONFIG;
  */
 function getClientIP(request: NextRequest): string {
   // Vercel/Next.js provides this
+  
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) {
     // x-forwarded-for may contain multiple IPs, take the first (original client)
