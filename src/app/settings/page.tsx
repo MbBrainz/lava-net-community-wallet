@@ -18,14 +18,17 @@ import {
   Monitor,
   Check,
   Copy,
+  Gift,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { shortenAddress, getChainColor } from "@/lib/utils";
-import { getAddressExplorerUrl, CHAIN_CONFIGS, type ChainId } from "@/lib/chains/registry";
+import { getAddressExplorerUrl, CHAIN_CONFIGS } from "@/lib/chains/registry";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Sheet } from "@/components/ui/Modal";
+import { ReferralSection } from "@/components/referral/ReferralSection";
+import { AdminSection } from "@/components/referral/admin/AdminSection";
 import Image from "next/image";
 
 type Theme = "light" | "dark" | "system";
@@ -51,6 +54,10 @@ export default function SettingsPage() {
   const [showWalletSheet, setShowWalletSheet] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // User info for referral system
+  const userEmail = user?.email || "";
+  const dynamicUserId = user?.id || "";
 
   // Enabled chains from config
   const enabledChains = Object.values(CHAIN_CONFIGS)
@@ -307,6 +314,26 @@ export default function SettingsPage() {
             </Card>
           </motion.div>
         ))}
+
+        {/* Referral Program Section */}
+        {userEmail && dynamicUserId && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Gift className="w-4 h-4 text-lava-orange" />
+              <h2 className="text-sm font-semibold text-grey-200">
+                Referral Program
+              </h2>
+            </div>
+            <ReferralSection userEmail={userEmail} dynamicUserId={dynamicUserId} />
+          </motion.div>
+        )}
+
+        {/* Admin Panel Section (only visible to admins) */}
+        {userEmail && <AdminSection userEmail={userEmail} />}
 
         {/* Version & Logout */}
         <motion.div

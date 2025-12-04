@@ -29,6 +29,7 @@ const serwist = new Serwist({
         },
         networkTimeoutSeconds: 10,
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any,
     {
       // Cache images
@@ -41,6 +42,7 @@ const serwist = new Serwist({
           maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
         },
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any,
     {
       // Cache fonts
@@ -53,6 +55,7 @@ const serwist = new Serwist({
           maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
         },
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any,
   ],
 });

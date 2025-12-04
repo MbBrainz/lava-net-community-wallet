@@ -26,7 +26,7 @@ interface SendSheetProps {
 export function SendSheet({ isOpen, onClose }: SendSheetProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const { arbitrumLavaBalance, baseLavaBalance, totalLavaBalance } = useApp();
+  const { arbitrumLavaBalance, baseLavaBalance } = useApp();
 
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");

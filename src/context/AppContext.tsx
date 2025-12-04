@@ -109,7 +109,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     arbitrumEth,
     baseEth,
     isLoading: balanceLoading,
-    isError: balanceError,
     error: balanceErrorDetails,
     lastUpdated,
     refetch: refreshBalanceFromHook,

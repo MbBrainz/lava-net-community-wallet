@@ -6,7 +6,6 @@ import {
   Flame,
   ExternalLink,
   Info,
-  ChevronRight,
   Zap,
   RefreshCw,
   ArrowRightLeft,
