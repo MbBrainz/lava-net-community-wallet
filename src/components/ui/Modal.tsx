@@ -113,7 +113,7 @@ export function Sheet({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50">
+        <div className="fixed inset-0 z-[60]">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}

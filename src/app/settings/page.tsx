@@ -22,7 +22,7 @@ import { getAddressExplorerUrl, CHAIN_CONFIGS } from "@/lib/chains/registry";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Modal, Sheet } from "@/components/ui/Modal";
+import { Sheet } from "@/components/ui/Modal";
 import { ReferralSection } from "@/components/referral/ReferralSection";
 import { AdminSection } from "@/components/referral/admin/AdminSection";
 import Image from "next/image";
@@ -421,12 +421,11 @@ export default function SettingsPage() {
         </div>
       </Sheet>
 
-      {/* Sign Out Confirmation Modal */}
-      <Modal
+      {/* Sign Out Confirmation Sheet */}
+      <Sheet
         isOpen={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}
         title="Sign Out"
-        size="sm"
       >
         <div className="space-y-6">
           <div className="flex flex-col items-center text-center">
@@ -459,7 +458,7 @@ export default function SettingsPage() {
             </Button>
           </div>
         </div>
-      </Modal>
+      </Sheet>
     </div>
   );
 }
