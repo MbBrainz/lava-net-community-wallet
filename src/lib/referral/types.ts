@@ -7,7 +7,12 @@
 
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { admins, referrerCodes, userReferrals } from "@/lib/db/schema";
+import {
+  admins,
+  referrerCodes,
+  userReferrals,
+  pendingReferralVisits,
+} from "@/lib/db/schema";
 import { REFERRAL_CONFIG } from "./constants";
 
 // ============================================
@@ -113,19 +118,14 @@ export const adminActionSchema = z.object({
 });
 
 // ============================================
-// LOCALSTORAGE TYPES
+// LOCALSTORAGE CACHE TYPES
 // ============================================
 
-/** Shape of referral data stored in localStorage */
-export const storedReferralSchema = z.object({
-  ref: z.string(),
-  tag: z.string().optional(),
-  source: z.string().optional(),
-  fullParams: z.record(z.string(), z.string()),
-  capturedAt: z.string().datetime(),
-});
-
-export type StoredReferral = z.infer<typeof storedReferralSchema>;
+/**
+ * These types are for caching user status to reduce API calls.
+ * NOTE: We do NOT store captured referral data in localStorage
+ * because it doesn't persist between browser and PWA on iOS.
+ */
 
 /** Shape of cached referral status in localStorage */
 export const cachedReferralStatusSchema = z.object({
@@ -185,4 +185,86 @@ export type AdminReferralsResponse = {
     referralCount: number;
   }>;
 };
+
+// ============================================
+// PENDING REFERRAL VISITS (Probabilistic Matching)
+// ============================================
+
+/** Schema for selecting pending referral visit records */
+export const selectPendingReferralVisitSchema = createSelectSchema(
+  pendingReferralVisits
+);
+
+/** Schema for inserting pending referral visit records */
+export const insertPendingReferralVisitSchema = createInsertSchema(
+  pendingReferralVisits
+);
+
+/** Type for a pending referral visit from the database */
+export type PendingReferralVisit = z.infer<
+  typeof selectPendingReferralVisitSchema
+>;
+
+/** Type for inserting a new pending referral visit */
+export type NewPendingReferralVisit = z.infer<
+  typeof insertPendingReferralVisitSchema
+>;
+
+// ============================================
+// PROBABILISTIC MATCHING API SCHEMAS
+// ============================================
+
+/**
+ * Fingerprint data used for probabilistic matching.
+ * Collected from the visitor's browser.
+ */
+export const fingerprintSchema = z.object({
+  /** Screen resolution (e.g., "390x844") */
+  screenResolution: z.string().max(20).optional(),
+});
+
+export type Fingerprint = z.infer<typeof fingerprintSchema>;
+
+/** Schema for POST /api/referrals/track-visit */
+export const trackVisitRequestSchema = z.object({
+  /** Referral data captured from URL */
+  referralData: z.object({
+    ref: z.string().min(1).max(REFERRAL_CONFIG.CODE_MAX_LENGTH),
+    tag: z.string().optional(),
+    source: z.string().optional(),
+    fullParams: z.record(z.string(), z.string()),
+    capturedAt: z.string().datetime(),
+  }),
+  /** Browser fingerprint for matching */
+  fingerprint: fingerprintSchema.optional(),
+});
+
+export type TrackVisitRequest = z.infer<typeof trackVisitRequestSchema>;
+
+/** Response from POST /api/referrals/track-visit */
+export type TrackVisitResponse =
+  | { success: true; visitId: string }
+  | { success: false; error: string; message: string };
+
+/** Schema for GET /api/referrals/match-visit (query params converted to body) */
+export const matchVisitRequestSchema = z.object({
+  /** Browser fingerprint for matching */
+  fingerprint: fingerprintSchema.optional(),
+});
+
+export type MatchVisitRequest = z.infer<typeof matchVisitRequestSchema>;
+
+/** Response from GET /api/referrals/match-visit */
+export type MatchVisitResponse =
+  | {
+      matched: true;
+      referralData: {
+        ref: string;
+        tag: string | null;
+        source: string | null;
+        fullParams: Record<string, string>;
+        capturedAt: string;
+      };
+    }
+  | { matched: false; reason: "no_match" | "multiple_matches" | "disabled" };
 

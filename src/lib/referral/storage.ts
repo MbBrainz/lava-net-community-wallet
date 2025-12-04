@@ -1,12 +1,15 @@
 /**
  * LocalStorage Helpers for Referral System
  *
- * Handles all localStorage read/write operations with type safety.
+ * Handles localStorage operations for caching user's referral code status
+ * and admin status. These caches improve UX by reducing API calls.
+ *
+ * NOTE: We do NOT store captured referral data in localStorage because
+ * localStorage doesn't persist between browser and PWA on iOS.
+ * All referral capture and matching is done server-side.
  */
 
 import {
-  StoredReferral,
-  storedReferralSchema,
   CachedReferralStatus,
   cachedReferralStatusSchema,
   CachedAdminStatus,
@@ -17,73 +20,12 @@ import { REFERRAL_CONFIG } from "./constants";
 const { STORAGE_KEYS } = REFERRAL_CONFIG;
 
 // ============================================
-// CAPTURED REFERRAL (from URL)
-// ============================================
-
-/**
- * Save referral data captured from URL parameters.
- * Uses last-touch attribution (overwrites existing).
- */
-export function saveReferral(data: StoredReferral): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.CAPTURED_REFERRAL, JSON.stringify(data));
-  } catch (error) {
-    console.error("[Referral Storage] Failed to save referral:", error);
-  }
-}
-
-/**
- * Get referral data from localStorage.
- * Returns null if not found or invalid.
- */
-export function getReferral(): StoredReferral | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CAPTURED_REFERRAL);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-    const result = storedReferralSchema.safeParse(parsed);
-
-    if (!result.success) {
-      console.warn("[Referral Storage] Invalid referral data, clearing");
-      clearReferral();
-      return null;
-    }
-
-    return result.data;
-  } catch (error) {
-    console.error("[Referral Storage] Failed to get referral:", error);
-    return null;
-  }
-}
-
-/**
- * Clear referral data from localStorage.
- */
-export function clearReferral(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEYS.CAPTURED_REFERRAL);
-  } catch (error) {
-    console.error("[Referral Storage] Failed to clear referral:", error);
-  }
-}
-
-/**
- * Check if referral is expired (older than 30 days).
- */
-export function isReferralExpired(referral: StoredReferral): boolean {
-  const capturedDate = new Date(referral.capturedAt);
-  const expiryMs = REFERRAL_CONFIG.REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-  const expiryDate = new Date(capturedDate.getTime() + expiryMs);
-  return new Date() > expiryDate;
-}
-
-// ============================================
 // USER REFERRAL STATUS CACHE
 // ============================================
 
 /**
  * Save user's referral status to cache.
+ * This caches whether the user has requested/received a referral code.
  */
 export function saveReferralStatus(
   data: Omit<CachedReferralStatus, "cachedAt">
@@ -214,16 +156,14 @@ export function clearAdminStatus(): void {
 }
 
 // ============================================
-// CLEAR ALL (for logout)
+// CLEAR ALL CACHES (for logout)
 // ============================================
 
 /**
- * Clear all referral-related localStorage data.
+ * Clear all referral-related localStorage caches.
  * Call this on logout.
  */
-export function clearAllReferralData(): void {
-  clearReferral();
+export function clearReferralStatusCaches(): void {
   clearReferralStatus();
   clearAdminStatus();
 }
-
