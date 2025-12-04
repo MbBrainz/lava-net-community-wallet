@@ -19,6 +19,7 @@ import { motion } from "framer-motion";
 import { Check, X, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { useAuthFetch } from "@/lib/auth/client";
 import { validateCode, REFERRAL_CONFIG } from "@/lib/referral";
 
 interface ReferralRequestFormProps {
@@ -39,8 +40,13 @@ export function ReferralRequestForm({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const { authFetch, isReady } = useAuthFetch();
 
-  // Debounced availability check
+  // Suppress unused variable warning - these are passed for context but auth comes from JWT
+  void userEmail;
+  void dynamicUserId;
+
+  // Debounced availability check (public endpoint - no auth needed)
   useEffect(() => {
     if (!code) {
       setAvailability("idle");
@@ -61,6 +67,7 @@ export function ReferralRequestForm({
 
     const timer = setTimeout(async () => {
       try {
+        // /api/referrals/check is a public endpoint (no auth required)
         const response = await fetch(
           `/api/referrals/check?code=${encodeURIComponent(code)}`
         );
@@ -86,23 +93,24 @@ export function ReferralRequestForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (availability !== "available" || isSubmitting) return;
+    if (availability !== "available" || isSubmitting || !isReady) return;
 
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
-      const response = await fetch("/api/referrals/request", {
+      // Use authenticated fetch - email/userId come from JWT on server
+      const response = await authFetch("/api/referrals/request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code,
-          email: userEmail,
-          dynamicUserId,
-        }),
+        body: JSON.stringify({ code }),
       });
 
       const data = await response.json();
+
+      if (response.status === 401) {
+        setSubmitError("Please log in to request a code");
+        return;
+      }
 
       if (data.success) {
         onSuccess(data.code, data.requestedAt);
@@ -224,7 +232,7 @@ export function ReferralRequestForm({
           type="submit"
           variant="primary"
           fullWidth
-          disabled={availability !== "available" || isSubmitting}
+          disabled={availability !== "available" || isSubmitting || !isReady}
         >
           {isSubmitting ? (
             <>
@@ -243,4 +251,3 @@ export function ReferralRequestForm({
     </Card>
   );
 }
-

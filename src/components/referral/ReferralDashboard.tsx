@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ReferralShareBuilder } from "./ReferralShareBuilder";
 import { ReferralHowToModal } from "./ReferralHowToModal";
+import { useAuthFetch } from "@/lib/auth/client";
 import { getReferralStatus, formatDate, ReferralStatsResponse } from "@/lib/referral";
 
 interface ReferralItem {
@@ -40,6 +41,7 @@ export function ReferralDashboard() {
   const router = useRouter();
   const { user } = useApp();
   const userEmail = user?.email || "";
+  const { authFetch, isReady } = useAuthFetch();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -50,12 +52,17 @@ export function ReferralDashboard() {
   const [showHowToModal, setShowHowToModal] = useState(false);
 
   const fetchStats = useCallback(async () => {
-    if (!userEmail) return;
+    if (!isReady) return;
 
     try {
-      const response = await fetch(
-        `/api/referrals/stats?email=${encodeURIComponent(userEmail)}`
-      );
+      // Use authenticated fetch - email comes from JWT on server
+      const response = await authFetch("/api/referrals/stats");
+
+      if (response.status === 401) {
+        router.push("/settings");
+        return;
+      }
+
       const data: ReferralStatsResponse | { error: string; message: string } =
         await response.json();
 
@@ -77,7 +84,7 @@ export function ReferralDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [userEmail, router]);
+  }, [authFetch, isReady, router]);
 
   useEffect(() => {
     if (!userEmail) {
@@ -92,9 +99,11 @@ export function ReferralDashboard() {
       return;
     }
 
-    // Fetch stats
-    fetchStats();
-  }, [userEmail, router, fetchStats]);
+    // Fetch stats when auth is ready
+    if (isReady) {
+      fetchStats();
+    }
+  }, [userEmail, router, isReady, fetchStats]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -290,4 +299,3 @@ export function ReferralDashboard() {
     </div>
   );
 }
-

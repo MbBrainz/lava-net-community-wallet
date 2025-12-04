@@ -4,24 +4,18 @@
  * GET: Get list of pending and approved referrals for admin panel
  * POST: Approve or reject a pending referral code
  *
- * Auth required: Yes + Must be admin
+ * Auth required: Yes (verified via JWT token) + Must be admin
+ *
+ * Headers:
+ * - Authorization: Bearer <token>
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
-import { admins, referrerCodes } from "@/lib/db/schema";
+import { referrerCodes } from "@/lib/db/schema";
 import { eq, desc, and, ne } from "drizzle-orm";
 import { adminActionSchema } from "@/lib/referral";
-
-/**
- * Helper function to verify admin status
- */
-async function verifyAdmin(email: string): Promise<boolean> {
-  const admin = await db.query.admins.findFirst({
-    where: eq(admins.email, email),
-  });
-  return !!admin;
-}
+import { requireAdmin } from "@/lib/auth/server";
 
 /**
  * GET /api/admin/referrals
@@ -30,24 +24,10 @@ async function verifyAdmin(email: string): Promise<boolean> {
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-
-    // Validate email parameter
-    if (!email) {
-      return NextResponse.json(
-        { error: "missing_email", message: "Email parameter is required" },
-        { status: 400 }
-      );
-    }
-
-    // Verify admin
-    const isAdmin = await verifyAdmin(email);
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: "forbidden", message: "Admin access required" },
-        { status: 403 }
-      );
+    // Verify authentication and admin status
+    const auth = await requireAdmin(request);
+    if (!auth.success) {
+      return auth.response;
     }
 
     // Get pending codes
@@ -99,25 +79,13 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Verify authentication and admin status
+    const auth = await requireAdmin(request);
+    if (!auth.success) {
+      return auth.response;
+    }
+
     const body = await request.json();
-
-    // Validate admin email
-    const adminEmail = body.adminEmail;
-    if (!adminEmail) {
-      return NextResponse.json(
-        { success: false, error: "missing_email", message: "Admin email is required" },
-        { status: 400 }
-      );
-    }
-
-    // Verify admin
-    const isAdmin = await verifyAdmin(adminEmail);
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: "forbidden", message: "Admin access required" },
-        { status: 403 }
-      );
-    }
 
     // Validate request body
     const parseResult = adminActionSchema.safeParse(body);
@@ -151,7 +119,10 @@ export async function POST(request: NextRequest) {
     if (action === "reject") {
       await db.delete(referrerCodes).where(eq(referrerCodes.code, code));
 
-      console.log("[Admin] Code rejected:", code);
+      // Log without PII in production
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Admin] Code rejected:", code);
+      }
       return NextResponse.json({
         success: true,
         action: "reject",
@@ -196,7 +167,10 @@ export async function POST(request: NextRequest) {
         })
         .where(eq(referrerCodes.code, code));
 
-      console.log("[Admin] Code approved:", code);
+      // Log without PII in production
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Admin] Code approved:", code);
+      }
       return NextResponse.json({
         success: true,
         action: "approve",
@@ -216,4 +190,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

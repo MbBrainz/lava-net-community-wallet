@@ -2,21 +2,66 @@
  * POST /api/referrals/convert
  *
  * Purpose: Attribute a referral when new user signs up
- * Auth required: Yes (get email from request body - client verifies auth)
+ * Auth required: Yes (verified via JWT token)
+ *
+ * Headers:
+ * - Authorization: Bearer <token>
+ *
+ * Request body:
+ * - referralData: { ref, tag?, source?, fullParams, capturedAt }
+ * - walletAddress?: string
+ *
+ * Note: userEmail and dynamicUserId are extracted from the verified JWT
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { referrerCodes, userReferrals } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { convertReferralSchema, isExpired } from "@/lib/referral";
+import { isExpired } from "@/lib/referral";
+import { getAuthenticatedUser } from "@/lib/auth/server";
+import { z } from "zod";
+
+// Simplified schema - user info comes from JWT now
+const convertRequestSchema = z.object({
+  referralData: z.object({
+    ref: z.string().min(1),
+    tag: z.string().optional(),
+    source: z.string().optional(),
+    fullParams: z.record(z.string(), z.string()).optional(),
+    capturedAt: z.string(),
+  }),
+  walletAddress: z.string().optional(),
+});
+
+// Sanitize fullParams to prevent abuse
+function sanitizeFullParams(
+  params: Record<string, string> | undefined | null
+): Record<string, string> {
+  if (!params) return {};
+
+  return Object.fromEntries(
+    Object.entries(params)
+      .slice(0, 20) // Max 20 params
+      .map(([k, v]) => [
+        k.slice(0, 50), // Max 50 char keys
+        String(v).slice(0, 200), // Max 200 char values
+      ])
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify authentication via JWT
+    const auth = await getAuthenticatedUser(request);
+    if (!auth.success) {
+      return auth.response;
+    }
+
     const body = await request.json();
 
     // 1. Validate request body
-    const parseResult = convertReferralSchema.safeParse(body);
+    const parseResult = convertRequestSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
         {
@@ -28,12 +73,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { userEmail, dynamicUserId, walletAddress, referralData } =
-      parseResult.data;
+    const { referralData, walletAddress } = parseResult.data;
+
+    // Use VERIFIED email and userId from JWT
+    const userEmail = auth.user.email;
+    const dynamicUserId = auth.user.userId;
 
     // 2. Check expiry
     if (isExpired(referralData.capturedAt)) {
-      console.log("[Convert] Referral expired for:", userEmail);
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Convert] Referral expired for user");
+      }
       return NextResponse.json({
         success: true,
         attributed: false,
@@ -50,7 +100,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (!referrerCode) {
-      console.log("[Convert] Code not approved:", referralData.ref);
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Convert] Code not approved:", referralData.ref);
+      }
       return NextResponse.json({
         success: true,
         attributed: false,
@@ -64,7 +116,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingReferral) {
-      console.log("[Convert] User already has referral:", userEmail);
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Convert] User already has referral");
+      }
       return NextResponse.json({
         success: true,
         attributed: false,
@@ -72,7 +126,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 5. Insert referral record
+    // 5. Insert referral record with sanitized params
     await db.insert(userReferrals).values({
       userEmail,
       dynamicUserId,
@@ -80,14 +134,15 @@ export async function POST(request: NextRequest) {
       referrerCode: referralData.ref,
       customTag: referralData.tag || null,
       source: referralData.source || null,
-      fullParams: referralData.fullParams,
+      fullParams: sanitizeFullParams(referralData.fullParams),
       referredAt: new Date(referralData.capturedAt),
     });
 
-    console.log("[Convert] Referral attributed:", {
-      user: userEmail,
-      code: referralData.ref,
-    });
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Convert] Referral attributed:", {
+        code: referralData.ref,
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -101,4 +156,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

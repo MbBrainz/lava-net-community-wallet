@@ -49,3 +49,6 @@ public/swe-worker-*.js.map
 *.swp
 *.swo
 
+
+# references for ai prompts
+refs/

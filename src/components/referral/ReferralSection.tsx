@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ReferralRequestForm } from "./ReferralRequestForm";
 import { ReferralPendingStatus } from "./ReferralPendingStatus";
 import { ReferralApprovedStatus } from "./ReferralApprovedStatus";
+import { useAuthFetch } from "@/lib/auth/client";
 import {
   getReferralStatus,
   saveReferralStatus,
@@ -40,12 +41,22 @@ interface StatusData {
 export function ReferralSection({ userEmail, dynamicUserId }: ReferralSectionProps) {
   const [status, setStatus] = useState<Status>("loading");
   const [statusData, setStatusData] = useState<StatusData>({});
+  const { authFetch, isReady } = useAuthFetch();
 
   const fetchStatus = useCallback(async () => {
+    if (!isReady) return;
+
     try {
-      const response = await fetch(
-        `/api/referrals/status?email=${encodeURIComponent(userEmail)}`
-      );
+      // Use authenticated fetch - no email in URL needed, server gets it from JWT
+      const response = await authFetch("/api/referrals/status");
+      
+      // Handle unauthorized
+      if (response.status === 401) {
+        console.error("[ReferralSection] Not authenticated");
+        setStatus("none");
+        return;
+      }
+
       const data: ReferralStatusResponse = await response.json();
 
       // Update state
@@ -84,7 +95,7 @@ export function ReferralSection({ userEmail, dynamicUserId }: ReferralSectionPro
       console.error("[ReferralSection] Failed to fetch status:", error);
       setStatus("none");
     }
-  }, [userEmail]);
+  }, [authFetch, isReady, userEmail]);
 
   useEffect(() => {
     if (!userEmail) {
@@ -116,12 +127,14 @@ export function ReferralSection({ userEmail, dynamicUserId }: ReferralSectionPro
       });
 
       // Fetch fresh data (might have been approved)
-      fetchStatus();
-    } else {
+      if (isReady) {
+        fetchStatus();
+      }
+    } else if (isReady) {
       // No cache, fetch from API
       fetchStatus();
     }
-  }, [userEmail, fetchStatus]);
+  }, [userEmail, isReady, fetchStatus]);
 
   const handleCodeRequested = (code: string, requestedAt: string) => {
     setStatus("pending");
@@ -147,11 +160,18 @@ export function ReferralSection({ userEmail, dynamicUserId }: ReferralSectionPro
   // No code yet - show request form
   if (status === "none") {
     return (
-      <ReferralRequestForm
-        userEmail={userEmail}
-        dynamicUserId={dynamicUserId}
-        onSuccess={handleCodeRequested}
-      />
+      <div className="space-y-4">
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4">
+          <p className="text-sm text-amber-200/90 leading-relaxed">
+            <span className="font-semibold text-amber-300">Note:</span> The referral program is exclusively for recognized members of the Lava community. If you haven&apos;t been in contact with the Lava Wallet team before, please reach out to us first — requests from unknown applicants will be declined.
+          </p>
+        </div>
+        <ReferralRequestForm
+          userEmail={userEmail}
+          dynamicUserId={dynamicUserId}
+          onSuccess={handleCodeRequested}
+        />
+      </div>
     );
   }
 
@@ -173,4 +193,3 @@ export function ReferralSection({ userEmail, dynamicUserId }: ReferralSectionPro
   // Fallback - shouldn't reach here
   return null;
 }
-

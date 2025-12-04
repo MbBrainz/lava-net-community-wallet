@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
+import { DynamicContextProvider, getAuthToken } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { CHAIN_CONFIGS } from "@/lib/chains/registry";
 import {
@@ -32,35 +32,47 @@ const evmNetworks = Object.values(CHAIN_CONFIGS)
 /**
  * Process referral for new users on signup.
  * Called from onAuthSuccess when user is new.
+ * Uses the auth token to authenticate the request server-side.
  */
 async function processNewUserReferral(userData: {
-  email: string;
-  dynamicUserId: string;
   walletAddress?: string;
 }) {
   // 1. Read referral from localStorage
   const referralData = getReferral();
 
   if (!referralData) {
-    console.log("[Referral] No referral data found");
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Referral] No referral data found");
+    }
     return;
   }
 
   // 2. Check expiry
   if (isReferralExpired(referralData)) {
-    console.log("[Referral] Referral expired");
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Referral] Referral expired");
+    }
     clearReferral();
     return;
   }
 
-  // 3. Call convert API
+  // 3. Get the auth token from Dynamic
+  const authToken = getAuthToken();
+  if (!authToken) {
+    console.error("[Referral] No auth token available for convert API");
+    return;
+  }
+
+  // 4. Call convert API with auth token
   try {
     const response = await fetch("/api/referrals/convert", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
       body: JSON.stringify({
-        userEmail: userData.email,
-        dynamicUserId: userData.dynamicUserId,
+        // User email and ID are now extracted from JWT on server
         walletAddress: userData.walletAddress,
         referralData: {
           ref: referralData.ref,
@@ -73,12 +85,15 @@ async function processNewUserReferral(userData: {
     });
 
     const result = await response.json();
-    console.log("[Referral] Convert result:", result);
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Referral] Convert result:", result);
+    }
   } catch (error) {
     console.error("[Referral] Convert API error:", error);
   }
 
-  // 4. Clear referral from localStorage regardless of result
+  // 5. Clear referral from localStorage regardless of result
   clearReferral();
 }
 
@@ -117,20 +132,24 @@ export function DynamicProvider({ children }: DynamicProviderProps) {
         // Events configuration
         events: {
           onAuthFlowClose: () => {
-            console.log("[Dynamic] Auth flow closed");
+            if (process.env.NODE_ENV === "development") {
+              console.log("[Dynamic] Auth flow closed");
+            }
           },
           onAuthFlowOpen: () => {
-            console.log("[Dynamic] Auth flow opened");
+            if (process.env.NODE_ENV === "development") {
+              console.log("[Dynamic] Auth flow opened");
+            }
           },
           onAuthSuccess: async (args) => {
-            console.log("[Dynamic] Auth success", args);
+            if (process.env.NODE_ENV === "development") {
+              console.log("[Dynamic] Auth success", args);
+            }
 
             // Only process referrals for NEW users
             if (args.user.newUser) {
               try {
                 await processNewUserReferral({
-                  email: args.user.email || "",
-                  dynamicUserId: args.user.userId || "",
                   walletAddress: args.primaryWallet?.address,
                 });
               } catch (error) {
@@ -140,7 +159,9 @@ export function DynamicProvider({ children }: DynamicProviderProps) {
             }
           },
           onLogout: () => {
-            console.log("[Dynamic] User logged out");
+            if (process.env.NODE_ENV === "development") {
+              console.log("[Dynamic] User logged out");
+            }
             // Clear referral caches on logout
             clearAllReferralData();
           },

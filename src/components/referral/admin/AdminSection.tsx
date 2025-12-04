@@ -3,57 +3,41 @@
 /**
  * AdminSection Component
  *
- * Admin panel wrapper for settings page.
- *
- * Behavior:
- * 1. Check if user is admin (from cache or API)
- * 2. If not admin → render nothing (component is invisible)
- * 3. If admin → render admin panel with pending/approved lists
+ * Shows admin status and link to admin panel in settings page.
+ * Only visible to admin users.
  */
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Shield, RefreshCw, AlertTriangle } from "lucide-react";
+import { Shield, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { AdminPendingList } from "./AdminPendingList";
-import { AdminApprovedList } from "./AdminApprovedList";
-import {
-  getAdminStatus,
-  saveAdminStatus,
-  AdminReferralsResponse,
-} from "@/lib/referral";
+import { Badge } from "@/components/ui/Badge";
+import { useAuthFetch } from "@/lib/auth/client";
+import { getAdminStatus, saveAdminStatus } from "@/lib/referral";
 
 interface AdminSectionProps {
   userEmail: string;
 }
 
-interface PendingCode {
-  code: string;
-  ownerEmail: string;
-  requestedAt: string;
-}
-
-interface ApprovedCode {
-  code: string;
-  ownerEmail: string;
-  approvedAt: string | null;
-  referralCount: number;
-}
-
 export function AdminSection({ userEmail }: AdminSectionProps) {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [pendingCodes, setPendingCodes] = useState<PendingCode[]>([]);
-  const [approvedCodes, setApprovedCodes] = useState<ApprovedCode[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { authFetch, isReady } = useAuthFetch();
 
   const checkAdminStatus = useCallback(async () => {
+    if (!isReady) return false;
+
     try {
-      const response = await fetch(
-        `/api/admin/check?email=${encodeURIComponent(userEmail)}`
-      );
+      // Use authenticated fetch - email comes from JWT on server
+      const response = await authFetch("/api/admin/check");
+
+      if (response.status === 401) {
+        setIsAdmin(false);
+        return false;
+      }
+
       const data = await response.json();
 
       setIsAdmin(data.isAdmin);
@@ -65,27 +49,7 @@ export function AdminSection({ userEmail }: AdminSectionProps) {
       setIsAdmin(false);
       return false;
     }
-  }, [userEmail]);
-
-  const fetchReferrals = useCallback(async () => {
-    setError(null);
-    try {
-      const response = await fetch(
-        `/api/admin/referrals?email=${encodeURIComponent(userEmail)}`
-      );
-      const data: AdminReferralsResponse = await response.json();
-
-      if ("error" in data) {
-        throw new Error((data as { message?: string }).message || "Failed to fetch referrals");
-      }
-
-      setPendingCodes(data.pending);
-      setApprovedCodes(data.approved);
-    } catch (error) {
-      console.error("[AdminSection] Failed to fetch referrals:", error);
-      setError("Failed to load referral data");
-    }
-  }, [userEmail]);
+  }, [authFetch, isReady, userEmail]);
 
   useEffect(() => {
     if (!userEmail) {
@@ -98,67 +62,30 @@ export function AdminSection({ userEmail }: AdminSectionProps) {
       const cached = getAdminStatus(userEmail);
 
       if (cached?.isAdmin === true) {
-        // Use cache, is admin
         setIsAdmin(true);
         setIsLoading(false);
-        await fetchReferrals();
         return;
       }
 
       if (cached?.isAdmin === false) {
-        // Use cache, not admin
         setIsAdmin(false);
         setIsLoading(false);
         return;
       }
 
-      // No cache, check API
-      const isAdminResult = await checkAdminStatus();
-      setIsLoading(false);
-
-      if (isAdminResult) {
-        await fetchReferrals();
+      // No cache, check API when auth is ready
+      if (isReady) {
+        await checkAdminStatus();
+        setIsLoading(false);
       }
     };
 
     init();
-  }, [userEmail, checkAdminStatus, fetchReferrals]);
+  }, [userEmail, isReady, checkAdminStatus]);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchReferrals();
-    setIsRefreshing(false);
-  };
-
-  const handleAction = async (code: string, action: "approve" | "reject") => {
-    try {
-      const response = await fetch("/api/admin/referrals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          adminEmail: userEmail,
-          code,
-          action,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Refresh the lists
-        await fetchReferrals();
-      } else {
-        setError(data.message || `Failed to ${action} code`);
-      }
-    } catch (error) {
-      console.error("[AdminSection] Action failed:", error);
-      setError(`Failed to ${action} code`);
-    }
-  };
-
-  // Still loading
+  // Still loading - don't show anything
   if (isLoading) {
-    return null; // Don't show loading for admin section, just hide it
+    return null;
   }
 
   // Not admin - render nothing
@@ -166,72 +93,43 @@ export function AdminSection({ userEmail }: AdminSectionProps) {
     return null;
   }
 
-  // Admin - render panel
+  // Admin - render link to admin panel
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-8"
+      className="mt-6"
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5 text-lava-orange" />
-          <h2 className="text-lg font-semibold text-white">Admin Panel</h2>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          <RefreshCw
-            className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
-          />
-        </Button>
+      <div className="flex items-center gap-2 mb-3">
+        <Shield className="w-4 h-4 text-lava-orange" />
+        <h2 className="text-sm font-semibold text-grey-200">Admin</h2>
       </div>
 
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2"
-        >
-          <AlertTriangle className="w-4 h-4 text-red-400" />
-          <p className="text-sm text-red-400">{error}</p>
-        </motion.div>
-      )}
-
-      <Card variant="outline" className="border-lava-orange/20">
-        {/* Pending Section */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-grey-100 mb-3 flex items-center gap-2">
-            Pending Requests
-            {pendingCodes.length > 0 && (
-              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-full">
-                {pendingCodes.length}
-              </span>
-            )}
-          </h3>
-          <AdminPendingList pendingCodes={pendingCodes} onAction={handleAction} />
+      <Card variant="gradient">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-lava-orange/20 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-lava-orange" />
+            </div>
+            <div>
+              <p className="text-white font-medium">Admin Access</p>
+              <p className="text-sm text-grey-200">
+                Manage referral code requests
+              </p>
+            </div>
+          </div>
+          <Badge variant="warning" size="sm">
+            Admin
+          </Badge>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-grey-425/30 my-6" />
-
-        {/* Approved Section */}
-        <div>
-          <h3 className="text-sm font-semibold text-grey-100 mb-3 flex items-center gap-2">
-            Approved Codes
-            {approvedCodes.length > 0 && (
-              <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
-                {approvedCodes.length}
-              </span>
-            )}
-          </h3>
-          <AdminApprovedList approvedCodes={approvedCodes} />
-        </div>
+        <Link href="/admin" className="block mt-4">
+          <Button variant="secondary" fullWidth className="group">
+            <span>Open Admin Panel</span>
+            <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+          </Button>
+        </Link>
       </Card>
     </motion.section>
   );
 }
-
