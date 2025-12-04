@@ -16,6 +16,24 @@ const nextConfig: NextConfig = {
     "@dynamic-labs/cosmos",
   ],
 
+  // Security headers for all routes
+  headers: async () => [
+    {
+      // Apply to all API routes
+      source: "/api/:path*",
+      headers: [
+        // Prevent embedding in iframes
+        { key: "X-Frame-Options", value: "DENY" },
+        // Prevent MIME sniffing
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        // Restrict to same-origin requests only (no CORS for external domains)
+        { key: "Access-Control-Allow-Origin", value: "" },
+        // Disable credentials for cross-origin requests
+        { key: "Access-Control-Allow-Credentials", value: "false" },
+      ],
+    },
+  ],
+
   // Optimize imports for large packages (tree-shaking)
   experimental: {
     optimizePackageImports: [

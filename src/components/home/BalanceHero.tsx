@@ -4,14 +4,12 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw, ChevronDown, Flame, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { formatTokenAmount, formatCurrency, timeAgo, getChainColor } from "@/lib/utils";
+import { useLavaPrice, formatLavaPrice, formatUsdValue, calculateUsdValue } from "@/lib/hooks";
+import { formatTokenAmount, timeAgo, getChainColor } from "@/lib/utils";
 import { Sheet } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import Image from "next/image";
-
-// Mock LAVA price - in production this would come from a price feed
-const LAVA_PRICE_USD = 0.0847;
 
 interface BalanceHeroProps {
   onSend?: () => void;
@@ -31,6 +29,8 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
     isOffline,
   } = useApp();
 
+  const { price: lavaPrice, isLoading: isPriceLoading } = useLavaPrice();
+
   const [showDetails, setShowDetails] = useState(false);
 
   const handleRefresh = async () => {
@@ -39,7 +39,7 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
   };
 
   // Calculate USD value
-  const totalUsdValue = totalLavaBalance * LAVA_PRICE_USD;
+  const totalUsdValue = calculateUsdValue(totalLavaBalance, lavaPrice);
 
   // Build balance breakdown for the sheet
   const chainBalances = [
@@ -88,7 +88,7 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
               <div>
                 <h2 className="text-sm font-medium text-grey-100">Total LAVA Balance</h2>
                 <p className="text-xs text-grey-200">
-                  ${LAVA_PRICE_USD.toFixed(4)} per LAVA
+                  {isPriceLoading ? "Loading price..." : `${formatLavaPrice(lavaPrice)} per LAVA`}
                 </p>
               </div>
             </div>
@@ -111,7 +111,7 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
               <span className="text-xl font-semibold text-lava-orange">LAVA</span>
             </div>
             <p className="text-lg text-grey-100 mt-1">
-              {formatCurrency(totalUsdValue)}
+              {formatUsdValue(totalUsdValue)}
             </p>
           </div>
 
@@ -216,7 +216,7 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
                       {formatTokenAmount(chain.lavaBalance)} LAVA
                     </p>
                     <p className="text-xs text-grey-200">
-                      {formatCurrency(chain.lavaBalance * LAVA_PRICE_USD)}
+                      {formatUsdValue(calculateUsdValue(chain.lavaBalance, lavaPrice))}
                     </p>
                   </div>
                 </div>
@@ -233,7 +233,7 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
                   {formatTokenAmount(totalLavaBalance)} LAVA
                 </p>
                 <p className="text-sm text-grey-200">
-                  {formatCurrency(totalUsdValue)}
+                  {formatUsdValue(totalUsdValue)}
                 </p>
               </div>
             </div>

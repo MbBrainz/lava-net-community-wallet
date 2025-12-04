@@ -13,15 +13,13 @@ import {
 } from "lucide-react";
 import { FEATURES } from "@/lib/features";
 import { useApp } from "@/context/AppContext";
-import { formatTokenAmount, formatCurrency, getChainColor } from "@/lib/utils";
+import { useLavaPrice, formatLavaPrice, formatUsdValue, calculateUsdValue } from "@/lib/hooks";
+import { formatTokenAmount, getChainColor } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Sheet, Modal } from "@/components/ui/Modal";
 import { LAVA_TOKEN_ADDRESS, getTokenExplorerUrl } from "@/lib/chains/registry";
-
-// Mock LAVA price - in production this would come from a price feed
-const LAVA_PRICE_USD = 0.0847;
 
 export default function LavaPage() {
   const {
@@ -34,6 +32,8 @@ export default function LavaPage() {
     isRefreshing,
   } = useApp();
 
+  const { price: lavaPrice, isLoading: isPriceLoading } = useLavaPrice();
+
   const [showBridgeModal, setShowBridgeModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
@@ -44,7 +44,7 @@ export default function LavaPage() {
   } as const;
 
   // Calculate USD values
-  const totalUsdValue = totalLavaBalance * LAVA_PRICE_USD;
+  const totalUsdValue = calculateUsdValue(totalLavaBalance, lavaPrice);
 
   // Chain balances for display
   const chainBalances = [
@@ -107,13 +107,13 @@ export default function LavaPage() {
                   {formatTokenAmount(totalLavaBalance)}
                 </p>
                 <p className="text-sm text-grey-100">
-                  {formatCurrency(totalUsdValue)}
+                  {formatUsdValue(totalUsdValue)}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-grey-200 mb-1">Price</p>
                 <p className="text-lg font-semibold text-white">
-                  ${LAVA_PRICE_USD.toFixed(4)}
+                  {isPriceLoading ? "..." : formatLavaPrice(lavaPrice)}
                 </p>
               </div>
             </div>
