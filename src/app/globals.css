@@ -19,19 +19,7 @@
   --grey-100: #B9B9B9;
   --grey-25: #EDEDED;
   
-  /* Theme Variables - Light */
-  --background: #EDEDED;
-  --background-secondary: #ffffff;
-  --foreground: #05090F;
-  --foreground-secondary: #212630;
-  --foreground-muted: #787A7E;
-  --card: #ffffff;
-  --card-border: rgba(33, 38, 48, 0.1);
-  --accent: #FF3900;
-  --accent-foreground: #ffffff;
-}
-
-.dark {
+  /* Theme Variables - Dark Only */
   --background: #05090F;
   --background-secondary: #0C121A;
   --foreground: #EDEDED;
@@ -50,7 +38,7 @@
 }
 
 html {
-  color-scheme: dark light;
+  color-scheme: dark;
 }
 
 body {
@@ -64,8 +52,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Dark mode background pattern */
-.dark body {
+/* Background pattern */
+body {
   background: 
     radial-gradient(ellipse at 50% 0%, rgba(255, 57, 0, 0.08) 0%, transparent 50%),
     linear-gradient(180deg, #0C121A 0%, #05090F 100%);
@@ -116,10 +104,6 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.light .glass-card {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-}
 
 /* Glow effects */
 .lava-glow {

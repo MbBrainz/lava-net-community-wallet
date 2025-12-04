@@ -1,10 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Flame, BookOpen, Download } from "lucide-react";
+import { ArrowRight, Flame, BookOpen, Download, Clock } from "lucide-react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import Image from "next/image";
+import { FEATURES } from "@/lib/features";
 
 interface FeatureCard {
   id: string;
@@ -15,6 +16,7 @@ interface FeatureCard {
   action?: () => void;
   gradient: string;
   image?: string;
+  comingSoon?: boolean;
 }
 
 export function FeatureCards() {
@@ -29,6 +31,7 @@ export function FeatureCards() {
       href: "/lava",
       gradient: "from-lava-orange/30 to-lava-red/20",
       image: "/lava-brand-kit/mascots/mascot-lava-crown.png",
+      comingSoon: !FEATURES.STAKING,
     },
     {
       id: "learn",
@@ -38,6 +41,7 @@ export function FeatureCards() {
       href: "/lava",
       gradient: "from-lava-purple/30 to-lava-orange/20",
       image: "/lava-brand-kit/mascots/mascot-lavuci-cool.png",
+      comingSoon: !FEATURES.DEFI,
     },
     ...(!isInstalled
       ? [
@@ -64,7 +68,7 @@ export function FeatureCards() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.1 }}
-              className={`relative w-[260px] h-[140px] rounded-2xl overflow-hidden bg-gradient-to-br ${card.gradient} border border-white/5 touch-feedback`}
+              className={`relative w-[260px] h-[140px] rounded-2xl overflow-hidden bg-gradient-to-br ${card.gradient} border border-white/5 ${card.comingSoon ? "" : "touch-feedback"}`}
             >
               {/* Background pattern */}
               <div className="absolute inset-0 opacity-30">
@@ -76,7 +80,7 @@ export function FeatureCards() {
 
               {/* Mascot image */}
               {card.image && (
-                <div className="absolute -bottom-2 -right-2 w-24 h-24 opacity-40">
+                <div className={`absolute -bottom-2 -right-2 w-24 h-24 ${card.comingSoon ? "opacity-20 grayscale" : "opacity-40"}`}>
                   <Image
                     src={card.image}
                     alt=""
@@ -87,8 +91,16 @@ export function FeatureCards() {
                 </div>
               )}
 
+              {/* Coming Soon badge */}
+              {card.comingSoon && (
+                <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-grey-650/90 backdrop-blur-sm rounded-full border border-white/10">
+                  <Clock className="w-3 h-3 text-lava-orange" />
+                  <span className="text-[10px] font-medium text-grey-100">Coming Soon</span>
+                </div>
+              )}
+
               {/* Content */}
-              <div className="relative p-4 h-full flex flex-col">
+              <div className={`relative p-4 h-full flex flex-col ${card.comingSoon ? "opacity-60" : ""}`}>
                 <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-3">
                   <Icon className="w-5 h-5 text-white" />
                 </div>
@@ -100,13 +112,20 @@ export function FeatureCards() {
                   {card.description}
                 </p>
 
-                <div className="flex items-center gap-1 text-lava-orange text-xs font-medium mt-2">
-                  <span>Get started</span>
-                  <ArrowRight className="w-3 h-3" />
-                </div>
+                {!card.comingSoon && (
+                  <div className="flex items-center gap-1 text-lava-orange text-xs font-medium mt-2">
+                    <span>Get started</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </div>
+                )}
               </div>
             </motion.div>
           );
+
+          // Coming soon cards are not clickable
+          if (card.comingSoon) {
+            return <div key={card.id}>{content}</div>;
+          }
 
           if (card.href) {
             return (

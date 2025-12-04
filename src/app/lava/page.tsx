@@ -9,7 +9,9 @@ import {
   Zap,
   RefreshCw,
   ArrowRightLeft,
+  Clock,
 } from "lucide-react";
+import { FEATURES } from "@/lib/features";
 import { useApp } from "@/context/AppContext";
 import { formatTokenAmount, formatCurrency, getChainColor } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
@@ -198,17 +200,27 @@ export default function LavaPage() {
           transition={{ delay: 0.3 }}
         >
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-white">Use LAVA in DeFi</h2>
-            <button
-              onClick={() => setShowHelpModal(true)}
-              className="text-sm text-lava-orange hover:text-lava-spanish-orange flex items-center gap-1"
-            >
-              <Info className="w-4 h-4" />
-              <span>How to connect</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">Use LAVA in DeFi</h2>
+              {!FEATURES.DEFI && (
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-grey-650/90 rounded-full border border-white/10">
+                  <Clock className="w-3 h-3 text-lava-orange" />
+                  <span className="text-[10px] font-medium text-grey-100">Coming Soon</span>
+                </span>
+              )}
+            </div>
+            {FEATURES.DEFI && (
+              <button
+                onClick={() => setShowHelpModal(true)}
+                className="text-sm text-lava-orange hover:text-lava-spanish-orange flex items-center gap-1"
+              >
+                <Info className="w-4 h-4" />
+                <span>How to connect</span>
+              </button>
+            )}
           </div>
 
-          <div className="space-y-3">
+          <div className={`space-y-3 ${!FEATURES.DEFI ? "opacity-50 pointer-events-none" : ""}`}>
             {deFiApps.map((app, index) => (
               <motion.div
                 key={app.id}
@@ -219,7 +231,7 @@ export default function LavaPage() {
                 <Card
                   variant="glass"
                   padding="none"
-                  onClick={() => window.open(app.url, "_blank")}
+                  onClick={FEATURES.DEFI ? () => window.open(app.url, "_blank") : undefined}
                   className="overflow-hidden"
                 >
                   <div className="flex items-center gap-4 p-4">

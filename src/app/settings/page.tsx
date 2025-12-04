@@ -6,16 +6,12 @@ import {
   Settings,
   User,
   Wallet,
-  Palette,
   Bell,
   Shield,
   HelpCircle,
   ExternalLink,
   LogOut,
   ChevronRight,
-  Sun,
-  Moon,
-  Monitor,
   Check,
   Copy,
   Gift,
@@ -31,26 +27,15 @@ import { ReferralSection } from "@/components/referral/ReferralSection";
 import { AdminSection } from "@/components/referral/admin/AdminSection";
 import Image from "next/image";
 
-type Theme = "light" | "dark" | "system";
-
-const themeOptions: { value: Theme; label: string; icon: typeof Sun }[] = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
-];
-
 export default function SettingsPage() {
   const {
     user,
     walletAddress,
     logout,
-    theme,
-    setTheme,
     isInstalled,
     setShowInstallBanner,
   } = useApp();
 
-  const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showWalletSheet, setShowWalletSheet] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -112,12 +97,6 @@ export default function SettingsPage() {
     {
       title: "Preferences",
       items: [
-        {
-          icon: Palette,
-          label: "Appearance",
-          value: theme.charAt(0).toUpperCase() + theme.slice(1),
-          onClick: () => setShowThemeSheet(true),
-        },
         {
           icon: Bell,
           label: "Notifications",
@@ -358,55 +337,6 @@ export default function SettingsPage() {
           </p>
         </motion.div>
       </div>
-
-      {/* Theme Sheet */}
-      <Sheet
-        isOpen={showThemeSheet}
-        onClose={() => setShowThemeSheet(false)}
-        title="Appearance"
-      >
-        <div className="space-y-2">
-          {themeOptions.map((option) => {
-            const Icon = option.icon;
-            const isSelected = theme === option.value;
-
-            return (
-              <button
-                key={option.value}
-                onClick={() => {
-                  setTheme(option.value);
-                  setShowThemeSheet(false);
-                }}
-                className={`w-full flex items-center gap-3 p-4 rounded-xl transition-colors ${
-                  isSelected
-                    ? "bg-lava-orange/20 border border-lava-orange/30"
-                    : "bg-grey-650/50 hover:bg-grey-425/50"
-                }`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    isSelected ? "bg-lava-orange/30" : "bg-grey-425"
-                  }`}
-                >
-                  <Icon
-                    className={`w-5 h-5 ${
-                      isSelected ? "text-lava-orange" : "text-grey-100"
-                    }`}
-                  />
-                </div>
-                <span
-                  className={`flex-1 text-left font-medium ${
-                    isSelected ? "text-white" : "text-grey-100"
-                  }`}
-                >
-                  {option.label}
-                </span>
-                {isSelected && <Check className="w-5 h-5 text-lava-orange" />}
-              </button>
-            );
-          })}
-        </div>
-      </Sheet>
 
       {/* Wallet & Chains Sheet */}
       <Sheet
