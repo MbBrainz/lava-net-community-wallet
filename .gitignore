@@ -52,3 +52,6 @@ public/swe-worker-*.js.map
 
 # references for ai prompts
 refs/
+# Local SSL certificates
+localhost.pem
+localhost-key.pem

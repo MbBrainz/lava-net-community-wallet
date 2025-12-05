@@ -5,12 +5,7 @@
  */
 
 // Export all tables
-export {
-  admins,
-  referrerCodes,
-  userReferrals,
-  pendingReferralVisits,
-} from "./referrals";
+export { admins, referrerCodes, userReferrals } from "./referrals";
 
 // Export all relations
 export { referrerCodesRelations, userReferralsRelations } from "./referrals";

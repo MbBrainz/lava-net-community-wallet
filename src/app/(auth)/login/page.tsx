@@ -43,6 +43,7 @@ export default function LoginPage() {
   const [step, setStep] = useState<LoginStep>("email");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [isOtpFocused, setIsOtpFocused] = useState(false);
 
   const otpInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,23 +64,6 @@ export default function LoginPage() {
       setStep("otp");
     }
   }, [isOtpPending, step]);
-
-  // Focus OTP input when entering OTP step
-  // Use a small delay to ensure the animation has completed and the input is rendered
-  useEffect(() => {
-    if (step === "otp") {
-      // Small delay to allow AnimatePresence animation to complete
-      const timer = setTimeout(() => {
-        if (otpInputRef.current) {
-          otpInputRef.current.focus();
-          // For mobile: ensure keyboard shows by triggering click programmatically
-          // Some mobile browsers need this extra nudge
-          otpInputRef.current.click();
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [step]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -113,7 +97,7 @@ export default function LoginPage() {
     try {
       await sendOtpToEmail(email);
       setStep("otp");
-      setResendCooldown(60); // 60 second cooldown for resend
+      setResendCooldown(60);
     } catch {
       setEmailError("Failed to send verification code. Please try again.");
     }
@@ -127,7 +111,6 @@ export default function LoginPage() {
 
       try {
         await verifyOtp(codeToVerify);
-        // Success is handled by isAuthenticated effect
       } catch {
         // Error is handled by otpError state
       }
@@ -139,7 +122,6 @@ export default function LoginPage() {
   useEffect(() => {
     if (step !== "otp") return;
 
-    // Check if WebOTP is supported
     if ("OTPCredential" in window) {
       const abortController = new AbortController();
 
@@ -153,14 +135,12 @@ export default function LoginPage() {
           if (otpCredential && "code" in otpCredential) {
             const code = (otpCredential as { code: string }).code;
             setOtp(code);
-            // Auto-submit if we got a full code
             if (code.length === OTP_LENGTH) {
               handleOtpSubmit(code);
             }
           }
         })
         .catch((err) => {
-          // Silently handle abort or unsupported errors
           if (err.name !== "AbortError") {
             console.log("[WebOTP] Not available:", err.message);
           }
@@ -174,12 +154,10 @@ export default function LoginPage() {
 
   // Handle OTP input change
   const handleOtpChange = (value: string) => {
-    // Only allow digits
     const digits = value.replace(/\D/g, "").slice(0, OTP_LENGTH);
     setOtp(digits);
     clearOtpError();
 
-    // Auto-submit when complete
     if (digits.length === OTP_LENGTH) {
       handleOtpSubmit(digits);
     }
@@ -263,7 +241,6 @@ export default function LoginPage() {
               {/* Login form */}
               <Card variant="glass" className="p-6">
                 <form onSubmit={handleEmailSubmit} className="space-y-4">
-                  {/* Email input */}
                   <div>
                     <label
                       htmlFor="email"
@@ -275,7 +252,9 @@ export default function LoginPage() {
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-grey-200" />
                       <input
                         id="email"
+                        name="email"
                         type="email"
+                        autoComplete="email"
                         value={email}
                         onChange={(e) => {
                           setEmail(e.target.value);
@@ -283,13 +262,11 @@ export default function LoginPage() {
                         }}
                         placeholder="you@example.com"
                         className="w-full bg-grey-550 border border-grey-425 rounded-xl pl-11 pr-4 py-3 text-white placeholder:text-grey-200 focus:outline-none focus:border-lava-orange transition-colors"
-                        autoComplete="email"
                         autoFocus
                       />
                     </div>
                   </div>
 
-                  {/* Error message */}
                   {emailError && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
@@ -301,7 +278,6 @@ export default function LoginPage() {
                     </motion.div>
                   )}
 
-                  {/* Submit button */}
                   <Button
                     type="submit"
                     fullWidth
@@ -320,7 +296,6 @@ export default function LoginPage() {
                   </Button>
                 </form>
 
-                {/* Terms */}
                 <p className="text-xs text-grey-200 text-center mt-4">
                   By continuing, you agree to our{" "}
                   <a
@@ -364,29 +339,34 @@ export default function LoginPage() {
               </button>
 
               {/* Header */}
-              <div className="flex flex-col items-center mb-8">
-                <div className="w-16 h-16 rounded-full bg-lava-orange/20 flex items-center justify-center mb-4">
+              <div className="flex flex-col items-center mb-6">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
+                  className="w-16 h-16 rounded-full bg-lava-orange/20 flex items-center justify-center mb-4"
+                >
                   <Mail className="w-8 h-8 text-lava-orange" />
-                </div>
+                </motion.div>
                 <h1 className="text-2xl font-bold text-white mb-2">
                   Check your email
                 </h1>
                 <p className="text-grey-200 text-center">
-                  We sent a verification code to{" "}
+                  We sent a code to{" "}
                   <span className="text-white font-medium">{pendingEmail}</span>
                 </p>
               </div>
 
-              {/* OTP form */}
+              {/* OTP form with irresistible input */}
               <Card variant="glass" className="p-6">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     handleOtpSubmit();
                   }}
-                  className="space-y-4"
+                  className="space-y-5"
                 >
-                  {/* OTP input */}
+                  {/* OTP Input with glowing effect */}
                   <div>
                     <label
                       htmlFor="otp"
@@ -394,21 +374,47 @@ export default function LoginPage() {
                     >
                       Enter verification code
                     </label>
-                    <input
-                      ref={otpInputRef}
-                      id="otp"
-                      type="text"
-                      value={otp}
-                      onChange={(e) => handleOtpChange(e.target.value)}
-                      placeholder="000000"
-                      className="w-full bg-grey-550 border border-grey-425 rounded-xl px-4 py-4 text-white text-center text-2xl font-mono tracking-[0.5em] placeholder:text-grey-425 placeholder:tracking-[0.5em] focus:outline-none focus:border-lava-orange transition-colors"
-                      autoComplete="one-time-code"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={OTP_LENGTH}
-                      disabled={isVerifyingOtp}
-                      autoFocus
-                    />
+                    
+                    <motion.div
+                      initial={{ scale: 0.95 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.2 }}
+                      className="relative"
+                    >
+                      {/* Pulsing glow effect */}
+                      <motion.div
+                        animate={{
+                          boxShadow: [
+                            "0 0 20px 0px rgba(255, 107, 53, 0.3)",
+                            "0 0 30px 5px rgba(255, 107, 53, 0.5)",
+                            "0 0 20px 0px rgba(255, 107, 53, 0.3)",
+                          ],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                        className="absolute -inset-1 rounded-2xl pointer-events-none"
+                      />
+
+                      <input
+                        ref={otpInputRef}
+                        id="otp"
+                        type="text"
+                        value={otp}
+                        onChange={(e) => handleOtpChange(e.target.value)}
+                        onFocus={() => setIsOtpFocused(true)}
+                        onBlur={() => setIsOtpFocused(false)}
+                        placeholder="000000"
+                        className="relative w-full bg-grey-550 border-2 border-lava-orange/50 rounded-xl px-4 py-4 text-white text-center text-2xl font-mono tracking-[0.5em] placeholder:text-grey-425 placeholder:tracking-[0.5em] focus:outline-none focus:border-lava-orange transition-colors"
+                        autoComplete="one-time-code"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={OTP_LENGTH}
+                        disabled={isVerifyingOtp}
+                      />
+                    </motion.div>
                   </div>
 
                   {/* Error message */}
@@ -423,26 +429,38 @@ export default function LoginPage() {
                     </motion.div>
                   )}
 
-                  {/* Verify button */}
-                  <Button
-                    type="submit"
-                    fullWidth
-                    size="lg"
-                    disabled={isVerifyingOtp || otp.length !== OTP_LENGTH}
-                    className="flex items-center justify-center gap-2"
-                  >
-                    {isVerifyingOtp ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>Verifying...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Verify</span>
-                        <ArrowRight className="w-5 h-5" />
-                      </>
-                    )}
-                  </Button>
+                  {/* Verify / Tap button */}
+                  {!isOtpFocused && otp.length === 0 ? (
+                    <Button
+                      type="button"
+                      fullWidth
+                      size="lg"
+                      onClick={() => otpInputRef.current?.focus()}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      <span>👆 Tap to enter code</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      fullWidth
+                      size="lg"
+                      disabled={isVerifyingOtp || otp.length !== OTP_LENGTH}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      {isVerifyingOtp ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Verifying...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Verify</span>
+                          <ArrowRight className="w-5 h-5" />
+                        </>
+                      )}
+                    </Button>
+                  )}
 
                   {/* Resend code */}
                   <div className="text-center">

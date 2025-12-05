@@ -7,17 +7,42 @@
 // Consider using react-error-boundary package for production.
 
 import { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { DynamicProvider } from "./DynamicProvider";
 import { AuthProvider } from "@/context/AuthContext";
 import { AppProvider } from "@/context/AppContext";
 import { BottomNav } from "@/components/navigation/BottomNav";
-import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { PWAGate } from "@/components/pwa/PWAGate";
 import { ProtectedLayout } from "@/components/auth/ProtectedLayout";
 import { ReferralCapture } from "@/components/referral/ReferralCapture";
 
+// Routes that should not show the bottom navigation
+const AUTH_ROUTES = ["/login", "/offline"];
+
 interface ProvidersProps {
   children: ReactNode;
+}
+
+function AppContent({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isAuthRoute = AUTH_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route)
+  );
+
+  // Auth routes render without bottom nav and app container styling
+  if (isAuthRoute) {
+    return <>{children}</>;
+  }
+
+  // Authenticated routes get the full app shell with PWA gate and navigation
+  return (
+    <PWAGate>
+      <div className="app-container min-h-screen pb-[var(--bottom-nav-height)]">
+        <main className="safe-area-top">{children}</main>
+      </div>
+      <BottomNav />
+    </PWAGate>
+  );
 }
 
 export function Providers({ children }: ProvidersProps) {
@@ -25,16 +50,11 @@ export function Providers({ children }: ProvidersProps) {
     <DynamicProvider>
       <AuthProvider>
         <AppProvider>
-          <PWAGate>
-            <ReferralCapture />
-            <ProtectedLayout>
-              <div className="app-container min-h-screen pb-[var(--bottom-nav-height)]">
-                <main className="safe-area-top">{children}</main>
-              </div>
-              <BottomNav />
-              <InstallPrompt />
-            </ProtectedLayout>
-          </PWAGate>
+          {/* ReferralCapture runs first, before any gates, to capture URL params */}
+          <ReferralCapture />
+          <ProtectedLayout>
+            <AppContent>{children}</AppContent>
+          </ProtectedLayout>
         </AppProvider>
       </AuthProvider>
     </DynamicProvider>

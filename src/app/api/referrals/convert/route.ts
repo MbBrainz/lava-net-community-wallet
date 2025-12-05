@@ -23,12 +23,11 @@ import { getAuthenticatedUser } from "@/lib/auth/server";
 import { z } from "zod";
 
 // Simplified schema - user info comes from JWT now
-// Note: tag, source can be null (from server-side matching) or undefined
 const convertRequestSchema = z.object({
   referralData: z.object({
     ref: z.string().min(1),
-    tag: z.string().nullish(), // accepts string | null | undefined
-    source: z.string().nullish(), // accepts string | null | undefined
+    tag: z.string().optional(),
+    source: z.string().optional(),
     fullParams: z.record(z.string(), z.string()).optional(),
     capturedAt: z.string(),
   }),
@@ -52,30 +51,18 @@ function sanitizeFullParams(
 }
 
 export async function POST(request: NextRequest) {
-  console.log("[Convert] 📥 Incoming convert request");
-
   try {
     // Verify authentication via JWT
     const auth = await getAuthenticatedUser(request);
     if (!auth.success) {
-      console.log("[Convert] ❌ Authentication failed");
       return auth.response;
     }
-
-    console.log("[Convert] ✅ User authenticated:", {
-      email: auth.user.email,
-      userId: auth.user.userId.slice(0, 8) + "...",
-    });
 
     const body = await request.json();
 
     // 1. Validate request body
     const parseResult = convertRequestSchema.safeParse(body);
     if (!parseResult.success) {
-      console.warn("[Convert] ❌ Invalid request body:", {
-        issues: parseResult.error.issues,
-        receivedBody: JSON.stringify(body).slice(0, 200),
-      });
       return NextResponse.json(
         {
           success: false,
@@ -88,21 +75,15 @@ export async function POST(request: NextRequest) {
 
     const { referralData, walletAddress } = parseResult.data;
 
-    console.log("[Convert] 🔍 Processing referral:", {
-      code: referralData.ref,
-      tag: referralData.tag || "(none)",
-      source: referralData.source || "(none)",
-      capturedAt: referralData.capturedAt,
-      walletAddress: walletAddress || "(none)",
-    });
-
     // Use VERIFIED email and userId from JWT
     const userEmail = auth.user.email;
     const dynamicUserId = auth.user.userId;
 
     // 2. Check expiry
     if (isExpired(referralData.capturedAt)) {
-      console.log("[Convert] ⏰ Referral expired");
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Convert] Referral expired for user");
+      }
       return NextResponse.json({
         success: true,
         attributed: false,
@@ -119,7 +100,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (!referrerCode) {
-      console.log("[Convert] ⚠️ Code not approved:", referralData.ref);
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Convert] Code not approved:", referralData.ref);
+      }
       return NextResponse.json({
         success: true,
         attributed: false,
@@ -127,15 +110,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log("[Convert] ✅ Code is approved, checking existing referrals...");
-
     // 4. Check if user already has referral
     const existingReferral = await db.query.userReferrals.findFirst({
       where: eq(userReferrals.userEmail, userEmail),
     });
 
     if (existingReferral) {
-      console.log("[Convert] ⚠️ User already has a referral attribution");
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Convert] User already has referral");
+      }
       return NextResponse.json({
         success: true,
         attributed: false,
@@ -155,18 +138,18 @@ export async function POST(request: NextRequest) {
       referredAt: new Date(referralData.capturedAt),
     });
 
-    console.log("[Convert] ✅ Referral successfully attributed:", {
-      code: referralData.ref,
-      userEmail,
-      referrerCodeOwner: referrerCode.ownerEmail,
-    });
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Convert] Referral attributed:", {
+        code: referralData.ref,
+      });
+    }
 
     return NextResponse.json({
       success: true,
       attributed: true,
     });
   } catch (error) {
-    console.error("[Convert] ❌ Error:", error);
+    console.error("[Convert] Error:", error);
     return NextResponse.json(
       { success: false, error: "server_error", message: "Internal server error" },
       { status: 500 }

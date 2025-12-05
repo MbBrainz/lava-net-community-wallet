@@ -10,6 +10,11 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
+  allowedDevOrigins: [
+    `http://localhost:${process.env.PORT}`,
+    `192.168.130.159`,
+    `https://192.168.130.159:3001`,
+  ],
   // Transpile Dynamic Labs SDK packages for proper bundling
   transpilePackages: [
     "@dynamic-labs/sdk-react-core",

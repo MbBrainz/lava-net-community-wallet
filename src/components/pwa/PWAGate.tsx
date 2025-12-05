@@ -13,10 +13,15 @@ import {
   MoreHorizontal,
   Download,
   ChevronDown,
+  LogIn,
 } from "lucide-react";
 import Image from "next/image";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { isIOS, isAndroid, isPWA } from "@/lib/utils";
+
+// Storage key for tracking iOS PWA first launch
+const IOS_PWA_LAUNCHED_KEY = "lava_ios_pwa_launched";
 
 interface PWAGateProps {
   children: ReactNode;
@@ -29,12 +34,15 @@ export function PWAGate({ children }: PWAGateProps) {
     installPromptEvent,
     setInstallPromptEvent,
   } = useApp();
+  
+  const { isAuthenticated, isInitialized } = useAuth();
 
   const [installing, setInstalling] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [checkComplete, setCheckComplete] = useState(false);
   const [shouldShowGate, setShouldShowGate] = useState(false);
+  const [showIOSWelcomeBack, setShowIOSWelcomeBack] = useState(false);
 
   // Wait for client-side hydration and check PWA status
   useEffect(() => {
@@ -66,7 +74,18 @@ export function PWAGate({ children }: PWAGateProps) {
         return;
       }
       
-      const installed = isInstalled || isPWA();
+      // Check for iOS PWA first launch (user needs to re-login)
+      const isPwaMode = isInstalled || isPWA();
+      if (isPwaMode && isIOS()) {
+        const hasLaunchedBefore = localStorage.getItem(IOS_PWA_LAUNCHED_KEY);
+        if (!hasLaunchedBefore) {
+          // First launch in iOS PWA - show welcome back message
+          setShowIOSWelcomeBack(true);
+          localStorage.setItem(IOS_PWA_LAUNCHED_KEY, "true");
+        }
+      }
+      
+      const installed = isPwaMode;
       setShouldShowGate(!installed);
       setCheckComplete(true);
     }, 100);
@@ -92,13 +111,30 @@ export function PWAGate({ children }: PWAGateProps) {
     }
   };
 
-  // Show loading spinner during initial check
-  if (!mounted || !checkComplete) {
+  // Show loading spinner during initial check (only if auth is initialized)
+  if (!mounted || !checkComplete || !isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-grey-650">
         <div className="w-8 h-8 border-2 border-lava-orange/30 border-t-lava-orange rounded-full animate-spin" />
       </div>
     );
+  }
+
+  // IMPORTANT: Skip the gate for unauthenticated users
+  // This allows the login page to render so users can authenticate first
+  // The gate will show after they log in
+  if (!isAuthenticated) {
+    // Show iOS welcome back overlay if this is first PWA launch on iOS
+    // This helps iOS users understand they need to re-login after installing
+    if (showIOSWelcomeBack) {
+      return (
+        <>
+          <IOSWelcomeBack onDismiss={() => setShowIOSWelcomeBack(false)} />
+          {children}
+        </>
+      );
+    }
+    return <>{children}</>;
   }
 
   // If already installed as PWA, render children
@@ -240,6 +276,11 @@ export function PWAGate({ children }: PWAGateProps) {
             <Shield className="w-3.5 h-3.5" />
             <span>Your keys, your crypto. Always.</span>
           </motion.div>
+
+          {/* Dev-only logout button */}
+          {process.env.NODE_ENV === "development" && (
+            <DevLogoutButton />
+          )}
         </motion.div>
       </div>
 
@@ -626,6 +667,91 @@ function GenericInstructions() {
           </p>
         </motion.div>
       </div>
+    </motion.div>
+  );
+}
+
+// Dev-only logout button for testing PWA gate flow
+function DevLogoutButton() {
+  const { logout } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.6 }}
+      className="mt-6"
+    >
+      <button
+        onClick={handleLogout}
+        disabled={isLoggingOut}
+        className="flex items-center gap-2 text-grey-200 hover:text-white text-xs mx-auto px-3 py-2 rounded-lg border border-grey-425/50 hover:border-grey-200/50 transition-colors disabled:opacity-50"
+      >
+        <LogIn className="w-3.5 h-3.5 rotate-180" />
+        <span>{isLoggingOut ? "Logging out..." : "Dev: Logout"}</span>
+      </button>
+    </motion.div>
+  );
+}
+
+// iOS Welcome Back Component - shown on first PWA launch when user needs to re-login
+function IOSWelcomeBack({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="w-full max-w-sm glass-card rounded-2xl p-6 text-center"
+      >
+        {/* Welcome icon */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
+          className="w-20 h-20 rounded-full bg-lava-orange/20 flex items-center justify-center mx-auto mb-5"
+        >
+          <LogIn className="w-10 h-10 text-lava-orange" />
+        </motion.div>
+
+        <h2 className="text-xl font-bold text-white mb-2">
+          Welcome to Lava Wallet!
+        </h2>
+        
+        <p className="text-grey-200 text-sm mb-6">
+          You&apos;ve successfully installed the app. Please sign in to access your wallet.
+        </p>
+
+        <div className="p-3 bg-grey-550/50 rounded-xl mb-6">
+          <p className="text-xs text-grey-100">
+            <span className="text-lava-orange font-medium">Note:</span> For security reasons, iOS requires you to sign in again after installing the app.
+          </p>
+        </div>
+
+        <button
+          onClick={onDismiss}
+          className="w-full flex items-center justify-center gap-2 bg-lava-gradient hover:brightness-110 text-white font-semibold px-6 py-3.5 rounded-xl transition-all"
+        >
+          <span>Continue to Sign In</span>
+        </button>
+      </motion.div>
     </motion.div>
   );
 }
