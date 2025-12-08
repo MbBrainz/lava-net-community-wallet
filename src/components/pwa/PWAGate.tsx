@@ -33,6 +33,7 @@ export function PWAGate({ children }: PWAGateProps) {
     canInstall,
     installPromptEvent,
     setInstallPromptEvent,
+    trackPwaInstallEvent,
   } = useApp();
   
   const { isAuthenticated, isInitialized } = useAuth();
@@ -96,12 +97,23 @@ export function PWAGate({ children }: PWAGateProps) {
   const handleInstallClick = async () => {
     if (installPromptEvent) {
       setInstalling(true);
+      void trackPwaInstallEvent({
+        eventType: "install_flow_started",
+        triggeredBy: "pwa_gate",
+        installSurface: "pwa_gate_cta",
+      });
       try {
         await installPromptEvent.prompt();
         const { outcome } = await installPromptEvent.userChoice;
         if (outcome === "accepted") {
           // App will reload in standalone mode
         }
+        void trackPwaInstallEvent({
+          eventType: outcome === "accepted" ? "prompt_accepted" : "prompt_dismissed",
+          triggeredBy: "pwa_gate",
+          installSurface: "pwa_gate_cta",
+          metadata: { outcome },
+        });
       } catch {
         console.log("Install prompt failed");
       } finally {

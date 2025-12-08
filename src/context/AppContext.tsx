@@ -11,6 +11,7 @@ import React, {
 import { useAuth, AuthUser } from "@/context/AuthContext";
 import { useLavaBalance } from "@/lib/hooks/useLavaBalance";
 import { WalletTransaction } from "@/lib/wallet";
+import { useAuthFetch } from "@/lib/auth/client";
 import {
   mockCommunityPosts,
   mockNotifications,
@@ -19,6 +20,7 @@ import {
   type Notification,
   type DeFiApp,
 } from "@/lib/mock-data";
+import type { PwaInstallEventPayload } from "@/lib/pwa/install-events";
 
 type Theme = "light" | "dark" | "system";
 
@@ -80,6 +82,7 @@ interface AppContextType {
   setInstallPromptEvent: (event: BeforeInstallPromptEvent | null) => void;
   showInstallBanner: boolean;
   setShowInstallBanner: (show: boolean) => void;
+  trackPwaInstallEvent: (payload: PwaInstallEventPayload) => Promise<void>;
 
   // Offline
   isOffline: boolean;
@@ -100,6 +103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     user,
     logout: authLogout,
   } = useAuth();
+  const { authFetch } = useAuthFetch();
 
   // Balance state from Dynamic SDK's useTokenBalances hook
   const {
@@ -151,6 +155,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Wallet address from user
   const walletAddress = user?.walletAddress || null;
+
+  const trackPwaInstallEvent = useCallback(
+    async (payload: PwaInstallEventPayload) => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      try {
+        const nav = window.navigator as Navigator & { standalone?: boolean };
+        const displayModeStandalone = window.matchMedia
+          ? window.matchMedia("(display-mode: standalone)").matches
+          : false;
+        const fallbackStandalone = displayModeStandalone || nav.standalone === true;
+        const platform = payload.platform ?? nav.platform ?? null;
+        const userAgent = payload.userAgent ?? nav.userAgent ?? null;
+        const occurredAt = payload.occurredAt ?? new Date().toISOString();
+
+        await authFetch("/api/pwa/install", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            eventType: payload.eventType,
+            triggeredBy: payload.triggeredBy,
+            installSurface: payload.installSurface,
+            metadata: payload.metadata,
+            platform,
+            userAgent,
+            occurredAt,
+            isStandalone: payload.isStandalone ?? fallbackStandalone,
+          }),
+        });
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[PWA] Failed to track install event", error);
+        }
+      }
+    },
+    [authFetch]
+  );
 
   // Balance values from Dynamic SDK hook
   const totalLavaBalance = totalLava;
@@ -218,6 +263,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       e.preventDefault();
       setInstallPromptEvent(e as BeforeInstallPromptEvent);
       setCanInstall(true);
+      void trackPwaInstallEvent({
+        eventType: "prompt_available",
+        triggeredBy: "install_banner",
+        installSurface: "beforeinstallprompt",
+      });
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -228,7 +278,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         handleBeforeInstallPrompt
       );
     };
-  }, []);
+  }, [trackPwaInstallEvent]);
+
+  useEffect(() => {
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setShowInstallBanner(false);
+      void trackPwaInstallEvent({
+        eventType: "installed",
+        triggeredBy: "appinstalled",
+        installSurface: "system_event",
+      });
+    };
+
+    window.addEventListener("appinstalled", handleAppInstalled);
+    return () => {
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, [trackPwaInstallEvent]);
 
   // Monitor online/offline status
   useEffect(() => {
@@ -329,6 +396,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setInstallPromptEvent,
         showInstallBanner,
         setShowInstallBanner,
+        trackPwaInstallEvent,
         isOffline,
       }}
     >

@@ -15,6 +15,7 @@ export function InstallPrompt() {
     setInstallPromptEvent,
     showInstallBanner,
     setShowInstallBanner,
+    trackPwaInstallEvent,
   } = useApp();
 
   const [showIOSModal, setShowIOSModal] = useState(false);
@@ -33,22 +34,43 @@ export function InstallPrompt() {
     setShowInstallBanner(false);
     setDismissed(true);
     localStorage.setItem("installBannerDismissed", "true");
+    void trackPwaInstallEvent({
+      eventType: "banner_dismissed",
+      triggeredBy: "install_banner",
+      installSurface: "install_banner",
+    });
   };
 
   const handleInstallClick = async () => {
     if (isIOS()) {
       setShowIOSModal(true);
+      void trackPwaInstallEvent({
+        eventType: "ios_manual_flow",
+        triggeredBy: "ios_modal",
+        installSurface: "install_banner",
+      });
       return;
     }
 
     if (installPromptEvent) {
       setInstalling(true);
+      void trackPwaInstallEvent({
+        eventType: "install_flow_started",
+        triggeredBy: "install_banner",
+        installSurface: "install_banner",
+      });
       try {
         await installPromptEvent.prompt();
         const { outcome } = await installPromptEvent.userChoice;
         if (outcome === "accepted") {
           setShowInstallBanner(false);
         }
+        void trackPwaInstallEvent({
+          eventType: outcome === "accepted" ? "prompt_accepted" : "prompt_dismissed",
+          triggeredBy: "install_banner",
+          installSurface: "install_banner",
+          metadata: { outcome },
+        });
       } catch {
         console.log("Install prompt failed");
       } finally {
