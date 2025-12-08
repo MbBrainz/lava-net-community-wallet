@@ -190,6 +190,18 @@ export async function getAuthenticatedUser(
 }
 
 /**
+ * Best-effort authentication helper.
+ *
+ * Returns the authenticated user when a valid token is present, otherwise
+ * resolves to null without throwing or creating an HTTP response.
+ */
+export async function getOptionalAuthenticatedUser(
+  request: NextRequest
+): Promise<AuthenticatedUser | null> {
+  return verifyToken(request);
+}
+
+/**
  * Check if a user email is an admin.
  */
 async function isUserAdmin(email: string): Promise<boolean> {
