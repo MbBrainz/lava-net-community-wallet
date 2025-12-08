@@ -37,6 +37,5 @@ export interface PwaInstallEventPayload {
   platform?: string | null;
   userAgent?: string | null;
   metadata?: Record<string, unknown>;
-  walletAddress?: string | null;
   isStandalone?: boolean;
 }

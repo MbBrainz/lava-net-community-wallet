@@ -184,7 +184,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             metadata: payload.metadata,
             platform,
             userAgent,
-            walletAddress: payload.walletAddress ?? walletAddress,
             occurredAt,
             isStandalone: payload.isStandalone ?? fallbackStandalone,
           }),
@@ -195,7 +194,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [authFetch, walletAddress]
+    [authFetch]
   );
 
   // Balance values from Dynamic SDK hook

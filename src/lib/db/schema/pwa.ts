@@ -19,8 +19,6 @@ export const pwaInstallEvents = pgTable("pwa_install_events", {
   id: uuid("id").defaultRandom().primaryKey(),
   eventType: varchar("event_type", { length: 40 }).notNull(),
   userId: varchar("user_id", { length: 255 }),
-  userEmail: varchar("user_email", { length: 255 }),
-  walletAddress: varchar("wallet_address", { length: 255 }),
   triggeredBy: varchar("triggered_by", { length: 64 }),
   installSurface: varchar("install_surface", { length: 64 }),
   platform: varchar("platform", { length: 128 }),

@@ -27,7 +27,6 @@ const installEventSchema = z.object({
   platform: z.string().max(128).optional(),
   userAgent: z.string().max(512).optional(),
   installSurface: z.string().max(64).optional(),
-  walletAddress: z.string().max(255).optional().nullable(),
   isStandalone: z.boolean().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
@@ -47,11 +46,9 @@ export async function POST(request: NextRequest) {
       userAgent: payload.userAgent ?? null,
       isStandalone: payload.isStandalone ?? null,
       metadata: payload.metadata ?? null,
-      walletAddress: payload.walletAddress ?? null,
       occurredAt: payload.occurredAt
         ? new Date(payload.occurredAt)
         : new Date(),
-      userEmail: user?.email ?? null,
       userId: user?.userId ?? null,
     });
 
