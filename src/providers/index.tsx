@@ -6,7 +6,7 @@
 // - Auth state inconsistencies
 // Consider using react-error-boundary package for production.
 
-import { ReactNode } from "react";
+import { ReactNode, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { DynamicProvider } from "./DynamicProvider";
 import { AuthProvider } from "@/context/AuthContext";
@@ -54,7 +54,10 @@ export function Providers({ children }: ProvidersProps) {
         <AppProvider>
           <SwapProvider>
             {/* ReferralCapture runs first, before any gates, to capture URL params */}
-            <ReferralCapture />
+            {/* Wrapped in Suspense because useSearchParams requires it for static generation */}
+            <Suspense fallback={null}>
+              <ReferralCapture />
+            </Suspense>
             {/* PushHandler for foreground notifications */}
             <PushHandler />
             <ProtectedLayout>
