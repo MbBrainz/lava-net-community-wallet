@@ -33,7 +33,7 @@ export function CreateCodeModal({ isOpen, onClose, onSuccess }: CreateCodeModalP
     setError(null);
 
     try {
-      const response = await authFetch("/api/referrals-v2/codes", {
+      const response = await authFetch("/api/referrals/codes", {
         method: "POST",
         body: JSON.stringify({
           label: label.trim() || undefined,

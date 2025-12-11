@@ -3,57 +3,52 @@
 /**
  * ReferralCapture Component
  *
- * Captures referral params from URL on page load.
- * Runs on every page via Providers wrapper.
- *
- * Behavior:
- * 1. On mount, check URL for ?ref=, ?tag=, ?source=
- * 2. If ref exists:
- *    - Validate/truncate to 20 chars
- *    - Create referral object with timestamp
- *    - Save to localStorage (overwrites = last-touch)
- *    - Clean URL (remove params)
- * 3. Render nothing (null)
+ * Captures referral codes from URL parameters and stores them in localStorage.
+ * Runs on every page load to capture ?ref=CODE parameters.
  */
 
 import { useEffect } from "react";
-import { saveReferral, truncateCode, StoredReferral, REFERRAL_CONFIG } from "@/lib/referral";
-
-const { URL_PARAMS } = REFERRAL_CONFIG;
+import { useSearchParams } from "next/navigation";
+import { saveReferral, getReferral } from "@/lib/referral/storage";
+import { REFERRAL_CONFIG } from "@/lib/referral/constants";
+import { isValidCodeFormat } from "@/lib/referral/code-generator";
 
 export function ReferralCapture() {
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    // 1. Check if running in browser
-    if (typeof window === "undefined") return;
+    const refCode = searchParams.get(REFERRAL_CONFIG.URL_PARAMS.REF);
 
-    // 2. Get URL params
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get(URL_PARAMS.REF);
+    if (!refCode) return;
 
-    // 3. If no ref, do nothing
-    if (!ref) return;
+    // Validate code format
+    if (!isValidCodeFormat(refCode)) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[ReferralCapture] Invalid code format:", refCode);
+      }
+      return;
+    }
 
-    // 4. Truncate and create referral data
-    const referralData: StoredReferral = {
-      ref: truncateCode(ref),
-      tag: params.get(URL_PARAMS.TAG) || undefined,
-      source: params.get(URL_PARAMS.SOURCE) || undefined,
-      fullParams: Object.fromEntries(params.entries()),
+    // Check if we already have the same code stored
+    const existing = getReferral();
+    if (existing?.code === refCode.toUpperCase()) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[ReferralCapture] Code already captured:", refCode);
+      }
+      return;
+    }
+
+    // Save the referral code
+    saveReferral({
+      code: refCode.toUpperCase(),
       capturedAt: new Date().toISOString(),
-    };
+    });
 
-    // 5. Save to localStorage
-    saveReferral(referralData);
-    console.log("[ReferralCapture] Saved referral:", referralData);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[ReferralCapture] Captured referral code:", refCode);
+    }
+  }, [searchParams]);
 
-    // 6. Clean URL (remove ref-related params)
-    const url = new URL(window.location.href);
-    url.searchParams.delete(URL_PARAMS.REF);
-    url.searchParams.delete(URL_PARAMS.TAG);
-    url.searchParams.delete(URL_PARAMS.SOURCE);
-    window.history.replaceState({}, "", url.toString());
-  }, []); // Run once on mount
-
-  return null; // Render nothing
+  // This component doesn't render anything
+  return null;
 }
-

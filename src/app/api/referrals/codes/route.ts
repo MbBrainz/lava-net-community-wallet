@@ -15,10 +15,10 @@ import {
   MAX_CODES_PER_REFERRER,
   type Referrer,
   type ReferralCode,
-} from "@/lib/db/schema/referrers";
+} from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { generateUniqueCode } from "@/lib/referral/code-generator";
-import { createCodeSchema } from "@/lib/referral/types-v2";
+import { createCodeSchema } from "@/lib/referral/types";
 
 /**
  * GET /api/referrals-v2/codes

@@ -1,6 +1,6 @@
-import { ReferralDashboard } from "@/components/referral/ReferralDashboard";
+import { ReferrerDashboard } from "@/components/referral";
 
 export default function ReferralsPage() {
-  return <ReferralDashboard />;
+  return <ReferrerDashboard />;
 }
 

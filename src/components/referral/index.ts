@@ -2,14 +2,21 @@
  * Referral Components Exports
  */
 
+// Capture component (for URL params)
 export { ReferralCapture } from "./ReferralCapture";
-export { ReferralSection } from "./ReferralSection";
-export { ReferralRequestForm } from "./ReferralRequestForm";
-export { ReferralPendingStatus } from "./ReferralPendingStatus";
-export { ReferralApprovedStatus } from "./ReferralApprovedStatus";
-export { ReferralDashboard } from "./ReferralDashboard";
-export { ReferralShareBuilder } from "./ReferralShareBuilder";
-export { ReferralHowToModal } from "./ReferralHowToModal";
+
+// Main components
+export { ReferrerSection } from "./ReferrerSection";
+export { BecomeReferrerForm } from "./BecomeReferrerForm";
+export { ReferrerPendingStatus } from "./ReferrerPendingStatus";
+export { ReferrerApprovedStatus } from "./ReferrerApprovedStatus";
+export { ReferrerDashboard } from "./ReferrerDashboard";
+
+// Dashboard components
+export { ReferralCodeList } from "./ReferralCodeList";
+export { CreateCodeModal } from "./CreateCodeModal";
+export { RecentReferralsList } from "./RecentReferralsList";
 
 // Admin components
-export { AdminSection, AdminPendingList, AdminApprovedList } from "./admin";
+export { AdminDashboard, AdminPendingList, AdminApprovedList, AdminSection } from "./admin";
+

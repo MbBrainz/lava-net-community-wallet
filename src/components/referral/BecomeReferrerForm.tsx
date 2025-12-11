@@ -30,7 +30,7 @@ export function BecomeReferrerForm({ onSuccess }: BecomeReferrerFormProps) {
     setError(null);
 
     try {
-      const response = await authFetch("/api/referrals-v2/become", {
+      const response = await authFetch("/api/referrals/become", {
         method: "POST",
       });
 

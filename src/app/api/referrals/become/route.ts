@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
-import { referrers, type Referrer } from "@/lib/db/schema/referrers";
+import { referrers, type Referrer } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {

@@ -50,7 +50,7 @@ export function ReferralCodeList({ codes, onRefresh }: ReferralCodeListProps) {
 
     setTogglingCode(code);
     try {
-      const response = await authFetch("/api/referrals-v2/codes", {
+      const response = await authFetch("/api/referrals/codes", {
         method: "PATCH",
         body: JSON.stringify({
           code,

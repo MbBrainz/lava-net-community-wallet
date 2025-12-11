@@ -27,7 +27,7 @@ import { ReferralCodeList } from "./ReferralCodeList";
 import { CreateCodeModal } from "./CreateCodeModal";
 import { RecentReferralsList } from "./RecentReferralsList";
 import { useAuthFetch } from "@/lib/auth/client";
-import type { ReferralStatsResponse } from "@/lib/referral/types-v2";
+import type { ReferralStatsResponse } from "@/lib/referral/types";
 
 export function ReferrerDashboard() {
   const router = useRouter();
@@ -45,7 +45,7 @@ export function ReferrerDashboard() {
     if (!isReady) return;
 
     try {
-      const response = await authFetch("/api/referrals-v2/stats");
+      const response = await authFetch("/api/referrals/stats");
 
       if (response.status === 401) {
         router.push("/settings");

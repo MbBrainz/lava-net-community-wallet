@@ -6,7 +6,7 @@
  */
 
 import { db } from "@/lib/db/client";
-import { referralCodes, type ReferralCode } from "@/lib/db/schema/referrers";
+import { referralCodes, type ReferralCode } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 /**

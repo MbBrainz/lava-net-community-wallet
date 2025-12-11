@@ -7,8 +7,8 @@
 import {
   StoredReferral,
   storedReferralSchema,
-  CachedReferralStatus,
-  cachedReferralStatusSchema,
+  CachedReferrerStatus,
+  cachedReferrerStatusSchema,
   CachedAdminStatus,
   cachedAdminStatusSchema,
 } from "./types";
@@ -21,8 +21,7 @@ const { STORAGE_KEYS } = REFERRAL_CONFIG;
 // ============================================
 
 /**
- * Save referral data captured from URL parameters.
- * Uses last-touch attribution (overwrites existing).
+ * Save referral code captured from URL parameters.
  */
 export function saveReferral(data: StoredReferral): void {
   try {
@@ -33,7 +32,7 @@ export function saveReferral(data: StoredReferral): void {
 }
 
 /**
- * Get referral data from localStorage.
+ * Get referral code from localStorage.
  * Returns null if not found or invalid.
  */
 export function getReferral(): StoredReferral | null {
@@ -68,33 +67,23 @@ export function clearReferral(): void {
   }
 }
 
-/**
- * Check if referral is expired (older than 30 days).
- */
-export function isReferralExpired(referral: StoredReferral): boolean {
-  const capturedDate = new Date(referral.capturedAt);
-  const expiryMs = REFERRAL_CONFIG.REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-  const expiryDate = new Date(capturedDate.getTime() + expiryMs);
-  return new Date() > expiryDate;
-}
-
 // ============================================
-// USER REFERRAL STATUS CACHE
+// REFERRER STATUS CACHE
 // ============================================
 
 /**
- * Save user's referral status to cache.
+ * Save user's referrer status to cache.
  */
-export function saveReferralStatus(
-  data: Omit<CachedReferralStatus, "cachedAt">
+export function saveReferrerStatus(
+  data: Omit<CachedReferrerStatus, "cachedAt">
 ): void {
   try {
-    const cacheData: CachedReferralStatus = {
+    const cacheData: CachedReferrerStatus = {
       ...data,
       cachedAt: new Date().toISOString(),
     };
     localStorage.setItem(
-      STORAGE_KEYS.USER_REFERRAL_STATUS,
+      STORAGE_KEYS.REFERRER_STATUS,
       JSON.stringify(cacheData)
     );
   } catch (error) {
@@ -103,22 +92,22 @@ export function saveReferralStatus(
 }
 
 /**
- * Get cached referral status.
+ * Get cached referrer status.
  * Returns null if not found, invalid, or belongs to different user.
  */
-export function getReferralStatus(
+export function getReferrerStatus(
   currentUserEmail: string
-): CachedReferralStatus | null {
+): CachedReferrerStatus | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.USER_REFERRAL_STATUS);
+    const raw = localStorage.getItem(STORAGE_KEYS.REFERRER_STATUS);
     if (!raw) return null;
 
     const parsed = JSON.parse(raw);
-    const result = cachedReferralStatusSchema.safeParse(parsed);
+    const result = cachedReferrerStatusSchema.safeParse(parsed);
 
     if (!result.success) {
       console.warn("[Referral Storage] Invalid status cache, clearing");
-      clearReferralStatus();
+      clearReferrerStatus();
       return null;
     }
 
@@ -127,7 +116,7 @@ export function getReferralStatus(
       console.log(
         "[Referral Storage] Status cache belongs to different user, clearing"
       );
-      clearReferralStatus();
+      clearReferrerStatus();
       return null;
     }
 
@@ -139,11 +128,11 @@ export function getReferralStatus(
 }
 
 /**
- * Clear referral status cache.
+ * Clear referrer status cache.
  */
-export function clearReferralStatus(): void {
+export function clearReferrerStatus(): void {
   try {
-    localStorage.removeItem(STORAGE_KEYS.USER_REFERRAL_STATUS);
+    localStorage.removeItem(STORAGE_KEYS.REFERRER_STATUS);
   } catch (error) {
     console.error("[Referral Storage] Failed to clear status:", error);
   }
@@ -223,7 +212,6 @@ export function clearAdminStatus(): void {
  */
 export function clearAllReferralData(): void {
   clearReferral();
-  clearReferralStatus();
+  clearReferrerStatus();
   clearAdminStatus();
 }
-

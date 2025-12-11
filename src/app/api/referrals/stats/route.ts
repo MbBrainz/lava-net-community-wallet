@@ -1,85 +1,103 @@
 /**
- * GET /api/referrals/stats
+ * GET /api/referrals-v2/stats
  *
- * Purpose: Get dashboard statistics for approved code owner
- * Auth required: Yes (verified via JWT token)
- *
- * Headers:
- * - Authorization: Bearer <token>
- *
- * Responses:
- * - { code, totalReferrals, referrals: [...] }
- * - { error: "not_approved", message: "..." }
- * - { error: "no_code", message: "..." }
- * - { error: "unauthorized", message: "..." } (401)
+ * Get detailed statistics for an approved referrer.
+ * Includes per-code breakdown and recent referrals.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db/client";
-import { referrerCodes, userReferrals } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
-import { maskEmail } from "@/lib/referral";
 import { getAuthenticatedUser } from "@/lib/auth/server";
+import { db } from "@/lib/db/client";
+import {
+  referrers,
+  referralCodes,
+  userReferrals,
+  type Referrer,
+  type ReferralCode,
+  type UserReferral,
+} from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
+
+/**
+ * Mask an email address for privacy.
+ * "user@example.com" → "u***@e***.com"
+ */
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***@***.***";
+
+  const [domainName, tld] = domain.split(".");
+  if (!tld) return `${local?.[0] || "*"}***@***`;
+
+  return `${local?.[0] || "*"}***@${domainName?.[0] || "*"}***.${tld}`;
+}
 
 export async function GET(request: NextRequest) {
+  const auth = await getAuthenticatedUser(request);
+  if (!auth.success) {
+    return auth.response;
+  }
+
   try {
-    // Verify authentication via JWT
-    const auth = await getAuthenticatedUser(request);
-    if (!auth.success) {
-      return auth.response;
+    // Find referrer
+    const [referrer]: Referrer[] = await db
+      .select()
+      .from(referrers)
+      .where(eq(referrers.email, auth.user.email))
+      .limit(1);
+
+    if (!referrer) {
+      return NextResponse.json(
+        { error: "not_referrer", message: "You are not a referrer" },
+        { status: 403 }
+      );
     }
 
-    // Get user's approved code using the VERIFIED email
-    const userCode = await db.query.referrerCodes.findFirst({
-      where: and(
-        eq(referrerCodes.ownerEmail, auth.user.email),
-        eq(referrerCodes.isApproved, true)
-      ),
-    });
-
-    if (!userCode) {
-      // Check if they have a pending code
-      const pendingCode = await db.query.referrerCodes.findFirst({
-        where: eq(referrerCodes.ownerEmail, auth.user.email),
-      });
-
-      if (pendingCode) {
-        return NextResponse.json({
-          error: "not_approved",
-          message: "Your referral code is still pending approval",
-        });
-      }
-
-      return NextResponse.json({
-        error: "no_code",
-        message: "You don't have a referral code",
-      });
+    if (!referrer.isApproved) {
+      return NextResponse.json(
+        { error: "not_approved", message: "Your referrer account is pending approval" },
+        { status: 403 }
+      );
     }
 
-    // Get all referrals for this code
-    const referrals = await db.query.userReferrals.findMany({
-      where: eq(userReferrals.referrerCode, userCode.code),
-      orderBy: [desc(userReferrals.convertedAt)],
-    });
+    // Get all codes with their stats
+    const codes: ReferralCode[] = await db
+      .select()
+      .from(referralCodes)
+      .where(eq(referralCodes.referrerId, referrer.id))
+      .orderBy(desc(referralCodes.usageCount));
 
-    // Mask emails and format response
-    const maskedReferrals = referrals.map((r) => ({
-      id: r.id,
-      userEmail: maskEmail(r.userEmail),
-      convertedAt: r.convertedAt.toISOString(),
-      tag: r.customTag,
-      source: r.source,
-    }));
+    // Get all referrals for this referrer
+    const allReferrals: UserReferral[] = await db
+      .select()
+      .from(userReferrals)
+      .where(eq(userReferrals.referrerId, referrer.id))
+      .orderBy(desc(userReferrals.convertedAt));
+
+    // Get recent referrals (last 50)
+    const recentReferrals = allReferrals.slice(0, 50);
 
     return NextResponse.json({
-      code: userCode.code,
-      totalReferrals: referrals.length,
-      referrals: maskedReferrals,
+      referrerId: referrer.id,
+      totalReferrals: allReferrals.length,
+      codeStats: codes.map((code) => ({
+        code: code.code,
+        label: code.label,
+        usageCount: code.usageCount,
+        isActive: code.isActive,
+        expiresAt: code.expiresAt?.toISOString() || null,
+      })),
+      recentReferrals: recentReferrals.map((ref) => ({
+        id: ref.id,
+        userEmail: maskEmail(ref.userEmail),
+        codeUsed: ref.codeUsed,
+        convertedAt: ref.convertedAt.toISOString(),
+      })),
     });
   } catch (error) {
-    console.error("[Stats] Error:", error);
+    console.error("[Referrals] Failed to get stats:", error);
     return NextResponse.json(
-      { error: "server_error", message: "Internal server error" },
+      { error: "server_error", message: "Failed to get referral stats" },
       { status: 500 }
     );
   }

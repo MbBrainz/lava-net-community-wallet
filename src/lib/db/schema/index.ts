@@ -5,36 +5,27 @@
  */
 
 // ============================================
-// REFERRAL SCHEMA (v1) - Current production
-// Keep these exports for backward compatibility with existing code
-// ============================================
-export { admins, referrerCodes, userReferrals } from "./referrals";
-export { referrerCodesRelations, userReferralsRelations } from "./referrals";
-
-// ============================================
-// REFERRAL SCHEMA (v2) - New referrer-centric model
-// These are in a separate file for the migration
+// REFERRAL SCHEMA
 // ============================================
 export {
+  admins,
   referrers,
-  referralCodes as referralCodesV2,
-  userReferrals as userReferralsV2,
+  referralCodes,
+  userReferrals,
+  referrersRelations,
+  referralCodesRelations,
+  userReferralsRelations,
   MAX_CODES_PER_REFERRER,
   CODE_LENGTH,
-} from "./referrers";
-export {
-  referrersRelations,
-  referralCodesRelations as referralCodesRelationsV2,
-  userReferralsRelations as userReferralsRelationsV2,
-} from "./referrers";
+} from "./referrals";
 export type {
   Referrer,
   NewReferrer,
   ReferralCode,
   NewReferralCode,
-  UserReferral as UserReferralV2,
-  NewUserReferral as NewUserReferralV2,
-} from "./referrers";
+  UserReferral,
+  NewUserReferral,
+} from "./referrals";
 
 // ============================================
 // PWA SCHEMA
@@ -53,4 +44,3 @@ export type {
   NotificationPreferenceKey,
   NotificationTopic,
 } from "./push";
-

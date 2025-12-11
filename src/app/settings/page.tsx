@@ -23,8 +23,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Sheet } from "@/components/ui/Modal";
-import { ReferralSection } from "@/components/referral/ReferralSection";
-import { AdminSection } from "@/components/referral/admin/AdminSection";
+import { ReferrerSection, AdminSection } from "@/components/referral";
 import Image from "next/image";
 
 export default function SettingsPage() {
@@ -308,7 +307,7 @@ export default function SettingsPage() {
                 Referral Program
               </h2>
             </div>
-            <ReferralSection userEmail={userEmail} dynamicUserId={dynamicUserId} />
+            <ReferrerSection userEmail={userEmail} />
           </motion.div>
         )}
 

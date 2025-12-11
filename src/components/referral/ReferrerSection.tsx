@@ -16,7 +16,7 @@ import { BecomeReferrerForm } from "./BecomeReferrerForm";
 import { ReferrerPendingStatus } from "./ReferrerPendingStatus";
 import { ReferrerApprovedStatus } from "./ReferrerApprovedStatus";
 import { useAuthFetch } from "@/lib/auth/client";
-import type { ReferrerStatusResponse } from "@/lib/referral/types-v2";
+import type { ReferrerStatusResponse } from "@/lib/referral/types";
 
 interface ReferrerSectionProps {
   userEmail: string;
@@ -48,7 +48,7 @@ export function ReferrerSection({ userEmail }: ReferrerSectionProps) {
     if (!isReady) return;
 
     try {
-      const response = await authFetch("/api/referrals-v2/status");
+      const response = await authFetch("/api/referrals/status");
 
       if (response.status === 401) {
         console.error("[ReferrerSection] Not authenticated");
