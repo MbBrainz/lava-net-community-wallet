@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
-import { referralCodes, userReferrals, type UserReferral } from "@/lib/db/schema";
+import { referralCodes, userReferrals } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { validateCode, normalizeCode } from "@/lib/referral/code-generator";
 import { convertReferralSchema } from "@/lib/referral/types";
@@ -37,11 +37,9 @@ export async function POST(request: NextRequest) {
     const normalizedCode = normalizeCode(code);
 
     // Check if user already has a referral
-    const [existingReferral]: UserReferral[] = await db
-      .select()
-      .from(userReferrals)
-      .where(eq(userReferrals.userEmail, auth.user.email))
-      .limit(1);
+    const existingReferral = await db.query.userReferrals.findFirst({
+      where: eq(userReferrals.userEmail, auth.user.email),
+    });
 
     if (existingReferral) {
       return NextResponse.json({

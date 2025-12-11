@@ -10,7 +10,7 @@
  */
 
 import { db } from "@/lib/db/client";
-import { referralCodes, type ReferralCode } from "@/lib/db/schema";
+import { referralCodes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { CHARSET, CODE_LENGTH, isValidCodeFormat, normalizeCode } from "./validation";
 
@@ -48,11 +48,9 @@ export async function generateUniqueCode(): Promise<string> {
     const code = generateShortCode();
 
     // Check if code already exists
-    const [existing]: ReferralCode[] = await db
-      .select()
-      .from(referralCodes)
-      .where(eq(referralCodes.code, code))
-      .limit(1);
+    const existing = await db.query.referralCodes.findFirst({
+      where: eq(referralCodes.code, code),
+    });
 
     if (!existing) {
       return code;
@@ -73,7 +71,7 @@ export async function generateUniqueCode(): Promise<string> {
  */
 export async function validateCode(code: string): Promise<{
   isValid: boolean;
-  code?: ReferralCode;
+  code?: typeof referralCodes.$inferSelect;
   reason?: "not_found" | "inactive" | "expired" | "invalid_format";
 }> {
   // Check format first
@@ -84,11 +82,9 @@ export async function validateCode(code: string): Promise<{
   const normalizedCode = normalizeCode(code);
 
   // Look up the code
-  const [codeRecord]: ReferralCode[] = await db
-    .select()
-    .from(referralCodes)
-    .where(eq(referralCodes.code, normalizedCode))
-    .limit(1);
+  const codeRecord = await db.query.referralCodes.findFirst({
+    where: eq(referralCodes.code, normalizedCode),
+  });
 
   if (!codeRecord) {
     return { isValid: false, reason: "not_found" };

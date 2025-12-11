@@ -12,8 +12,6 @@ import {
   referrers,
   referralCodes,
   userReferrals,
-  type Referrer,
-  type ReferralCode,
   type UserReferral,
 } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -74,12 +72,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Find referrer
-    const [referrer]: Referrer[] = await db
-      .select()
-      .from(referrers)
-      .where(eq(referrers.email, auth.user.email))
-      .limit(1);
+    // Find referrer with codes and referrals in a single query
+    const referrer = await db.query.referrers.findFirst({
+      where: eq(referrers.email, auth.user.email ?? ""),
+      with: {
+        codes: {
+          orderBy: desc(referralCodes.usageCount),
+        },
+        referrals: {
+          orderBy: desc(userReferrals.convertedAt),
+        },
+      },
+    });
 
     if (!referrer) {
       return NextResponse.json(
@@ -95,19 +99,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all codes with their stats
-    const codes: ReferralCode[] = await db
-      .select()
-      .from(referralCodes)
-      .where(eq(referralCodes.referrerId, referrer.id))
-      .orderBy(desc(referralCodes.usageCount));
-
-    // Get all referrals for this referrer
-    const allReferrals: UserReferral[] = await db
-      .select()
-      .from(userReferrals)
-      .where(eq(userReferrals.referrerId, referrer.id))
-      .orderBy(desc(userReferrals.convertedAt));
+    // Extract codes and referrals from relations
+    const codes = referrer.codes;
+    const allReferrals = referrer.referrals;
 
     // Aggregate UTM breakdown
     const utmBreakdown = aggregateUTM(allReferrals);

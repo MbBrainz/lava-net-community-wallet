@@ -13,8 +13,6 @@ import {
   referrers,
   referralCodes,
   MAX_CODES_PER_REFERRER,
-  type Referrer,
-  type ReferralCode,
 } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { generateUniqueCode } from "@/lib/referral/code-generator";
@@ -32,12 +30,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Find referrer
-    const [referrer]: Referrer[] = await db
-      .select()
-      .from(referrers)
-      .where(eq(referrers.email, auth.user.email))
-      .limit(1);
+    // Find referrer with codes in a single query
+    const referrer = await db.query.referrers.findFirst({
+      where: eq(referrers.email, auth.user.email),
+      with: {
+        codes: {
+          orderBy: desc(referralCodes.createdAt),
+        },
+      },
+    });
 
     if (!referrer) {
       return NextResponse.json(
@@ -53,12 +54,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all codes for this referrer
-    const codes: ReferralCode[] = await db
-      .select()
-      .from(referralCodes)
-      .where(eq(referralCodes.referrerId, referrer.id))
-      .orderBy(desc(referralCodes.createdAt));
+    // Extract codes from relation
+    const codes = referrer.codes;
 
     return NextResponse.json({
       referrerId: referrer.id,
@@ -106,12 +103,13 @@ export async function POST(request: NextRequest) {
 
     const { label, expiresAt } = parsed.data;
 
-    // Find referrer
-    const [referrer]: Referrer[] = await db
-      .select()
-      .from(referrers)
-      .where(eq(referrers.email, auth.user.email))
-      .limit(1);
+    // Find referrer with codes to check limit
+    const referrer = await db.query.referrers.findFirst({
+      where: eq(referrers.email, auth.user.email),
+      with: {
+        codes: true,
+      },
+    });
 
     if (!referrer) {
       return NextResponse.json(
@@ -127,11 +125,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check code limit
-    const existingCodes: ReferralCode[] = await db
-      .select()
-      .from(referralCodes)
-      .where(eq(referralCodes.referrerId, referrer.id));
+    // Check code limit using relation
+    const existingCodes = referrer.codes;
 
     if (existingCodes.length >= MAX_CODES_PER_REFERRER) {
       return NextResponse.json(
@@ -199,11 +194,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Find referrer
-    const [referrer]: Referrer[] = await db
-      .select()
-      .from(referrers)
-      .where(eq(referrers.email, auth.user.email))
-      .limit(1);
+    const referrer = await db.query.referrers.findFirst({
+      where: eq(referrers.email, auth.user.email),
+    });
 
     if (!referrer?.isApproved) {
       return NextResponse.json(
@@ -213,11 +206,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Find the code and verify ownership
-    const [existingCode]: ReferralCode[] = await db
-      .select()
-      .from(referralCodes)
-      .where(eq(referralCodes.code, code.toUpperCase()))
-      .limit(1);
+    const existingCode = await db.query.referralCodes.findFirst({
+      where: eq(referralCodes.code, code.toUpperCase()),
+      with: {
+        referrer: true,
+      },
+    });
 
     if (!existingCode) {
       return NextResponse.json(

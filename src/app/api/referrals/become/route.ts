@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
-import { referrers, type Referrer } from "@/lib/db/schema";
+import { referrers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
@@ -20,11 +20,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // Check if user is already a referrer
-    const [existingReferrer]: Referrer[] = await db
-      .select()
-      .from(referrers)
-      .where(eq(referrers.email, auth.user.email))
-      .limit(1);
+    const existingReferrer = await db.query.referrers.findFirst({
+      where: eq(referrers.email, auth.user.email),
+    });
 
     if (existingReferrer) {
       if (existingReferrer.isApproved) {

@@ -8,14 +8,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
-import {
-  referrers,
-  referralCodes,
-  userReferrals,
-  type Referrer,
-  type ReferralCode,
-} from "@/lib/db/schema";
-import { eq, desc, count } from "drizzle-orm";
+import { referrers } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { adminReferrerActionSchema } from "@/lib/referral/types";
 
 /**
@@ -30,32 +24,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get all referrers
-    const allReferrers: Referrer[] = await db
-      .select()
-      .from(referrers)
-      .orderBy(desc(referrers.createdAt));
+    // Get all referrers with their codes and referrals in a single query
+    const allReferrers = await db.query.referrers.findMany({
+      with: {
+        codes: true,
+        referrals: true,
+      },
+      orderBy: desc(referrers.createdAt),
+    });
 
-    // Get code counts and referral counts for each referrer
-    const referrerStats = await Promise.all(
-      allReferrers.map(async (referrer) => {
-        const codes: ReferralCode[] = await db
-          .select()
-          .from(referralCodes)
-          .where(eq(referralCodes.referrerId, referrer.id));
-
-        const referralsResult = await db
-          .select({ count: count() })
-          .from(userReferrals)
-          .where(eq(userReferrals.referrerId, referrer.id));
-
-        return {
-          referrer,
-          codeCount: codes.length,
-          totalReferrals: referralsResult[0]?.count || 0,
-        };
-      })
-    );
+    // Calculate stats from relations
+    const referrerStats = allReferrers.map((referrer) => ({
+      referrer,
+      codeCount: referrer.codes.length,
+      totalReferrals: referrer.referrals.length,
+    }));
 
     // Split into pending and approved
     const pending = referrerStats
@@ -113,11 +96,9 @@ export async function PATCH(request: NextRequest) {
     const { referrerId, action } = parsed.data;
 
     // Find the referrer
-    const [referrer]: Referrer[] = await db
-      .select()
-      .from(referrers)
-      .where(eq(referrers.id, referrerId))
-      .limit(1);
+    const referrer = await db.query.referrers.findFirst({
+      where: eq(referrers.id, referrerId),
+    });
 
     if (!referrer) {
       return NextResponse.json(

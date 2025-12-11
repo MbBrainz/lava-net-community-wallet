@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
-import { referrers, referralCodes, type Referrer, type ReferralCode } from "@/lib/db/schema";
+import { referrers, referralCodes } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
@@ -18,12 +18,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Find referrer record
-    const [referrer]: Referrer[] = await db
-      .select()
-      .from(referrers)
-      .where(eq(referrers.email, auth.user.email))
-      .limit(1);
+    // Find referrer record with codes in a single query
+    const referrer = await db.query.referrers.findFirst({
+      where: eq(referrers.email, auth.user.email),
+      with: {
+        codes: {
+          orderBy: desc(referralCodes.createdAt),
+        },
+      },
+    });
 
     if (!referrer) {
       return NextResponse.json({ status: "none" });
@@ -36,12 +39,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get all codes for approved referrer
-    const codes: ReferralCode[] = await db
-      .select()
-      .from(referralCodes)
-      .where(eq(referralCodes.referrerId, referrer.id))
-      .orderBy(desc(referralCodes.createdAt));
+    // Extract codes from relation
+    const codes = referrer.codes;
 
     return NextResponse.json({
       status: "approved",

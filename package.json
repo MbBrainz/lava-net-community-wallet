@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "check": "concurrently \"pnpm lint\" \"pnpm typecheck\"",
     "migrate:referrals": "tsx scripts/migrate-referrals.ts"
   },
   "dependencies": {
@@ -53,6 +54,7 @@
     "@typescript-eslint/eslint-plugin": "^8.48.1",
     "@typescript-eslint/parser": "^8.48.1",
     "autoprefixer": "^10.4.22",
+    "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.8",
     "eslint": "^9.39.1",
     "eslint-config-next": "^15.5.7",
