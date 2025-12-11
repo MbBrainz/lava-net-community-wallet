@@ -51,6 +51,9 @@ export async function GET(request: NextRequest) {
       codes: codes.map((code) => ({
         code: code.code,
         label: code.label,
+        utmSource: code.utmSource,
+        utmMedium: code.utmMedium,
+        utmCampaign: code.utmCampaign,
         isActive: code.isActive,
         expiresAt: code.expiresAt?.toISOString() || null,
         usageCount: code.usageCount,

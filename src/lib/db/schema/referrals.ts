@@ -76,8 +76,23 @@ export const referralCodes = pgTable("referral_codes", {
     .notNull()
     .references(() => referrers.id, { onDelete: "cascade" }),
 
-  /** Optional label for campaign tracking (e.g., "Twitter", "Discord") */
+  /** Optional label for referrer's internal tracking (e.g., "Main link", "Bio link") */
   label: varchar("label", { length: 100 }),
+
+  // ============================================
+  // UTM TRACKING PARAMETERS
+  // ============================================
+
+  /** UTM Source - identifies the source (e.g., "twitter", "discord", "youtube") */
+  utmSource: varchar("utm_source", { length: 100 }),
+
+  /** UTM Medium - identifies the marketing medium (e.g., "social", "email", "cpc") */
+  utmMedium: varchar("utm_medium", { length: 100 }),
+
+  /** UTM Campaign - identifies the campaign name (e.g., "summer2024", "launch") */
+  utmCampaign: varchar("utm_campaign", { length: 100 }),
+
+  // ============================================
 
   /** Whether this code is active (can be used) */
   isActive: boolean("is_active").notNull().default(true),

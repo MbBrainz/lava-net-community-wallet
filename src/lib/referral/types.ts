@@ -60,6 +60,9 @@ export type NewUserReferral = z.infer<typeof insertUserReferralSchema>;
 /** Schema for creating a new referral code */
 export const createCodeSchema = z.object({
   label: z.string().max(100).optional(),
+  utmSource: z.string().max(100).optional(),
+  utmMedium: z.string().max(100).optional(),
+  utmCampaign: z.string().max(100).optional(),
   expiresAt: z.string().datetime().optional(),
 });
 
@@ -113,6 +116,23 @@ export type CachedAdminStatus = z.infer<typeof cachedAdminStatusSchema>;
 // API RESPONSE TYPES
 // ============================================
 
+/** UTM parameters type */
+export type UTMParams = {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+};
+
+/** Code with UTM tracking */
+export type CodeWithUTM = {
+  code: string;
+  label: string | null;
+  isActive: boolean;
+  expiresAt: string | null;
+  usageCount: number;
+  createdAt: string;
+} & UTMParams;
+
 /** Response from GET /api/referrals/status */
 export type ReferrerStatusResponse =
   | { status: "none" }
@@ -122,24 +142,11 @@ export type ReferrerStatusResponse =
       referrerId: string;
       approvedAt: string;
       canSendNotifications: boolean;
-      codes: Array<{
-        code: string;
-        label: string | null;
-        isActive: boolean;
-        expiresAt: string | null;
-        usageCount: number;
-        createdAt: string;
-      }>;
+      codes: CodeWithUTM[];
     };
 
 /** Response from POST /api/referrals/codes */
-export type CreateCodeResponse = {
-  code: string;
-  label: string | null;
-  isActive: boolean;
-  expiresAt: string | null;
-  createdAt: string;
-};
+export type CreateCodeResponse = CodeWithUTM;
 
 /** Response from GET /api/referrals/stats */
 export type ReferralStatsResponse = {
@@ -151,7 +158,7 @@ export type ReferralStatsResponse = {
     usageCount: number;
     isActive: boolean;
     expiresAt: string | null;
-  }>;
+  } & UTMParams>;
   recentReferrals: Array<{
     id: string;
     userEmail: string; // Masked

@@ -1,20 +1,21 @@
 "use client";
 
 /**
- * ReferralCodeList Component (v2)
+ * ReferralCodeList Component
  *
- * Displays list of referral codes with copy and toggle actions.
+ * Displays list of referral codes with UTM tracking info, copy and toggle actions.
  */
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Copy, Check, Power, Hash } from "lucide-react";
+import { Copy, Check, Power, Hash, BarChart3 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Toggle } from "@/components/ui/Toggle";
 import { useAuthFetch } from "@/lib/auth/client";
+import type { UTMParams } from "@/lib/referral/types";
 
-interface CodeStats {
+interface CodeStats extends UTMParams {
   code: string;
   label: string | null;
   usageCount: number;
@@ -27,6 +28,24 @@ interface ReferralCodeListProps {
   onRefresh: () => void;
 }
 
+/**
+ * Build the full referral URL with UTM parameters
+ */
+function buildReferralUrl(
+  baseUrl: string,
+  code: string,
+  utm: UTMParams
+): string {
+  const url = new URL(baseUrl);
+  url.searchParams.set("ref", code);
+
+  if (utm.utmSource) url.searchParams.set("utm_source", utm.utmSource);
+  if (utm.utmMedium) url.searchParams.set("utm_medium", utm.utmMedium);
+  if (utm.utmCampaign) url.searchParams.set("utm_campaign", utm.utmCampaign);
+
+  return url.toString();
+}
+
 export function ReferralCodeList({ codes, onRefresh }: ReferralCodeListProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [togglingCode, setTogglingCode] = useState<string | null>(null);
@@ -34,11 +53,15 @@ export function ReferralCodeList({ codes, onRefresh }: ReferralCodeListProps) {
 
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
-  const handleCopy = async (code: string) => {
+  const handleCopy = async (code: CodeStats) => {
     try {
-      const link = `${baseUrl}/?ref=${code}`;
+      const link = buildReferralUrl(baseUrl, code.code, {
+        utmSource: code.utmSource,
+        utmMedium: code.utmMedium,
+        utmCampaign: code.utmCampaign,
+      });
       await navigator.clipboard.writeText(link);
-      setCopiedCode(code);
+      setCopiedCode(code.code);
       setTimeout(() => setCopiedCode(null), 2000);
     } catch (error) {
       console.error("Failed to copy:", error);
@@ -68,6 +91,9 @@ export function ReferralCodeList({ codes, onRefresh }: ReferralCodeListProps) {
     }
   };
 
+  const hasUtm = (code: CodeStats) =>
+    code.utmSource || code.utmMedium || code.utmCampaign;
+
   if (codes.length === 0) {
     return (
       <Card variant="glass">
@@ -93,9 +119,10 @@ export function ReferralCodeList({ codes, onRefresh }: ReferralCodeListProps) {
             transition={{ delay: 0.05 * index }}
             className="p-4"
           >
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                {/* Code and badges */}
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-lg font-semibold text-lava-orange font-mono">
                     {code.code}
                   </span>
@@ -109,18 +136,53 @@ export function ReferralCodeList({ codes, onRefresh }: ReferralCodeListProps) {
                       Expired
                     </Badge>
                   )}
+                  {hasUtm(code) && (
+                    <Badge variant="success" size="sm">
+                      <BarChart3 className="w-3 h-3 mr-1" />
+                      UTM
+                    </Badge>
+                  )}
                 </div>
+
+                {/* Label */}
                 {code.label && (
-                  <p className="text-sm text-grey-300 mt-0.5">{code.label}</p>
+                  <p className="text-sm text-grey-200 mt-0.5">{code.label}</p>
                 )}
-                <p className="text-xs text-grey-300 mt-1">
+
+                {/* UTM tags */}
+                {hasUtm(code) && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {code.utmSource && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-grey-650 text-grey-200 border border-grey-425/50">
+                        <span className="text-grey-400 mr-1">source:</span>
+                        {code.utmSource}
+                      </span>
+                    )}
+                    {code.utmMedium && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-grey-650 text-grey-200 border border-grey-425/50">
+                        <span className="text-grey-400 mr-1">medium:</span>
+                        {code.utmMedium}
+                      </span>
+                    )}
+                    {code.utmCampaign && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-grey-650 text-grey-200 border border-grey-425/50">
+                        <span className="text-grey-400 mr-1">campaign:</span>
+                        {code.utmCampaign}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Referral count */}
+                <p className="text-xs text-grey-300 mt-2">
                   {code.usageCount} referral{code.usageCount !== 1 ? "s" : ""}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Actions */}
+              <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => handleCopy(code.code)}
+                  onClick={() => handleCopy(code)}
                   className="p-2 text-grey-200 hover:text-white hover:bg-grey-425/50 rounded-lg transition-colors"
                   title="Copy referral link"
                 >
@@ -148,4 +210,3 @@ export function ReferralCodeList({ codes, onRefresh }: ReferralCodeListProps) {
     </Card>
   );
 }
-
