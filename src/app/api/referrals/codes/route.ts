@@ -1,5 +1,5 @@
 /**
- * /api/referrals-v2/codes
+ * /api/referrals/codes
  *
  * GET: List all codes for the authenticated referrer
  * POST: Create a new referral code
@@ -21,7 +21,7 @@ import { generateUniqueCode } from "@/lib/referral/code-generator";
 import { createCodeSchema } from "@/lib/referral/types";
 
 /**
- * GET /api/referrals-v2/codes
+ * GET /api/referrals/codes
  *
  * List all codes for the authenticated referrer.
  */
@@ -66,9 +66,6 @@ export async function GET(request: NextRequest) {
       codes: codes.map((code) => ({
         code: code.code,
         label: code.label,
-        utmSource: code.utmSource,
-        utmMedium: code.utmMedium,
-        utmCampaign: code.utmCampaign,
         isActive: code.isActive,
         expiresAt: code.expiresAt?.toISOString() || null,
         usageCount: code.usageCount,
@@ -85,7 +82,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/referrals-v2/codes
+ * POST /api/referrals/codes
  *
  * Create a new referral code.
  */
@@ -107,7 +104,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { label, utmSource, utmMedium, utmCampaign, expiresAt } = parsed.data;
+    const { label, expiresAt } = parsed.data;
 
     // Find referrer
     const [referrer]: Referrer[] = await db
@@ -156,9 +153,6 @@ export async function POST(request: NextRequest) {
         code,
         referrerId: referrer.id,
         label: label || null,
-        utmSource: utmSource || null,
-        utmMedium: utmMedium || null,
-        utmCampaign: utmCampaign || null,
         isActive: true,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         usageCount: 0,
@@ -168,9 +162,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       code: newCode.code,
       label: newCode.label,
-      utmSource: newCode.utmSource,
-      utmMedium: newCode.utmMedium,
-      utmCampaign: newCode.utmCampaign,
       isActive: newCode.isActive,
       expiresAt: newCode.expiresAt?.toISOString() || null,
       usageCount: newCode.usageCount,
@@ -186,7 +177,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PATCH /api/referrals-v2/codes
+ * PATCH /api/referrals/codes
  *
  * Update a code (toggle active, update label).
  */
@@ -246,9 +237,6 @@ export async function PATCH(request: NextRequest) {
     const updates: Partial<typeof referralCodes.$inferInsert> = {};
     if (typeof isActive === "boolean") updates.isActive = isActive;
     if (typeof label === "string") updates.label = label || null;
-    if (typeof body.utmSource === "string") updates.utmSource = body.utmSource || null;
-    if (typeof body.utmMedium === "string") updates.utmMedium = body.utmMedium || null;
-    if (typeof body.utmCampaign === "string") updates.utmCampaign = body.utmCampaign || null;
 
     const [updatedCode] = await db
       .update(referralCodes)
@@ -259,9 +247,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({
       code: updatedCode.code,
       label: updatedCode.label,
-      utmSource: updatedCode.utmSource,
-      utmMedium: updatedCode.utmMedium,
-      utmCampaign: updatedCode.utmCampaign,
       isActive: updatedCode.isActive,
       expiresAt: updatedCode.expiresAt?.toISOString() || null,
       usageCount: updatedCode.usageCount,

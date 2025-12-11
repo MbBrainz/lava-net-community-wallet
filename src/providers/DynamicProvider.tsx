@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CHAIN_CONFIGS } from "@/lib/chains/registry";
 import { wagmiConfig } from "@/lib/wagmi";
 import { getReferral, clearReferral, clearAllReferralData } from "@/lib/referral/storage";
+import { backupSession, clearSessionBackup } from "@/lib/session";
 
 // Create a stable QueryClient instance
 const queryClient = new QueryClient({
@@ -61,7 +62,7 @@ async function processNewUserReferral() {
     return;
   }
 
-  // 3. Call convert API with auth token
+  // 3. Call convert API with auth token and UTM params
   try {
     const response = await fetch("/api/referrals/convert", {
       method: "POST",
@@ -71,6 +72,9 @@ async function processNewUserReferral() {
       },
       body: JSON.stringify({
         code: referralData.code,
+        utmSource: referralData.utmSource,
+        utmMedium: referralData.utmMedium,
+        utmCampaign: referralData.utmCampaign,
       }),
     });
 
@@ -106,6 +110,9 @@ export function DynamicProvider({ children }: DynamicProviderProps) {
         },
         events: {
           onAuthSuccess: async (args) => {
+            // Backup session to IndexedDB (delay to ensure localStorage is populated)
+            setTimeout(() => backupSession(), 500);
+
             const isNewUser = args.isAuthenticated && args.primaryWallet;
 
             if (isNewUser) {
@@ -114,6 +121,8 @@ export function DynamicProvider({ children }: DynamicProviderProps) {
             }
           },
           onLogout: () => {
+            // Clear session backup from IndexedDB
+            clearSessionBackup();
             // Clear all referral data on logout
             clearAllReferralData();
           },

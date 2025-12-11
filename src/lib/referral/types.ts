@@ -1,7 +1,7 @@
 /**
- * Referral System Types (v2 - Refactored)
+ * Referral System Types
  *
- * New architecture with referrers → codes → referrals.
+ * Architecture: referrers → codes → referrals (with UTM captured at signup)
  */
 
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -60,9 +60,6 @@ export type NewUserReferral = z.infer<typeof insertUserReferralSchema>;
 /** Schema for creating a new referral code */
 export const createCodeSchema = z.object({
   label: z.string().max(100).optional(),
-  utmSource: z.string().max(100).optional(),
-  utmMedium: z.string().max(100).optional(),
-  utmCampaign: z.string().max(100).optional(),
   expiresAt: z.string().datetime().optional(),
 });
 
@@ -71,6 +68,9 @@ export const convertReferralSchema = z.object({
   code: z
     .string()
     .length(CODE_LENGTH, `Code must be ${CODE_LENGTH} characters`),
+  utmSource: z.string().max(100).optional(),
+  utmMedium: z.string().max(100).optional(),
+  utmCampaign: z.string().max(100).optional(),
 });
 
 /** Schema for admin action on a referrer */
@@ -83,9 +83,19 @@ export const adminReferrerActionSchema = z.object({
 // LOCALSTORAGE TYPES
 // ============================================
 
-/** Referral code stored from URL */
+/** UTM parameters captured from URL */
+export type UTMParams = {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+};
+
+/** Referral data stored from URL (includes UTM for later conversion) */
 export const storedReferralSchema = z.object({
   code: z.string().length(CODE_LENGTH),
+  utmSource: z.string().optional(),
+  utmMedium: z.string().optional(),
+  utmCampaign: z.string().optional(),
   capturedAt: z.string().datetime(),
 });
 
@@ -116,22 +126,15 @@ export type CachedAdminStatus = z.infer<typeof cachedAdminStatusSchema>;
 // API RESPONSE TYPES
 // ============================================
 
-/** UTM parameters type */
-export type UTMParams = {
-  utmSource: string | null;
-  utmMedium: string | null;
-  utmCampaign: string | null;
-};
-
-/** Code with UTM tracking */
-export type CodeWithUTM = {
+/** Code info (no UTM - UTM is captured at conversion) */
+export type CodeInfo = {
   code: string;
   label: string | null;
   isActive: boolean;
   expiresAt: string | null;
   usageCount: number;
   createdAt: string;
-} & UTMParams;
+};
 
 /** Response from GET /api/referrals/status */
 export type ReferrerStatusResponse =
@@ -142,11 +145,18 @@ export type ReferrerStatusResponse =
       referrerId: string;
       approvedAt: string;
       canSendNotifications: boolean;
-      codes: CodeWithUTM[];
+      codes: CodeInfo[];
     };
 
 /** Response from POST /api/referrals/codes */
-export type CreateCodeResponse = CodeWithUTM;
+export type CreateCodeResponse = CodeInfo;
+
+/** UTM breakdown stats */
+export type UTMBreakdown = {
+  source: Array<{ value: string | null; count: number }>;
+  medium: Array<{ value: string | null; count: number }>;
+  campaign: Array<{ value: string | null; count: number }>;
+};
 
 /** Response from GET /api/referrals/stats */
 export type ReferralStatsResponse = {
@@ -158,11 +168,15 @@ export type ReferralStatsResponse = {
     usageCount: number;
     isActive: boolean;
     expiresAt: string | null;
-  } & UTMParams>;
+  }>;
+  utmBreakdown: UTMBreakdown;
   recentReferrals: Array<{
     id: string;
     userEmail: string; // Masked
     codeUsed: string;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
     convertedAt: string;
   }>;
 };

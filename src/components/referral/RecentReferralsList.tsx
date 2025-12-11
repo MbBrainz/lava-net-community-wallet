@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * RecentReferralsList Component (v2)
+ * RecentReferralsList Component
  *
- * Displays list of recent referrals.
+ * Displays list of recent referrals with UTM tracking info.
  */
 
 import { motion } from "framer-motion";
-import { Users, Hash } from "lucide-react";
+import { Users, Hash, Globe } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 
@@ -15,6 +15,9 @@ interface Referral {
   id: string;
   userEmail: string;
   codeUsed: string;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
   convertedAt: string;
 }
 
@@ -60,33 +63,63 @@ export function RecentReferralsList({ referrals }: RecentReferralsListProps) {
   return (
     <Card variant="glass" padding="none">
       <div className="divide-y divide-grey-425/30">
-        {referrals.map((referral, index) => (
-          <motion.div
-            key={referral.id}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.05 * index }}
-            className="p-4"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-medium truncate">
-                  {referral.userEmail}
-                </p>
-                <p className="text-xs text-grey-300 mt-0.5">
-                  {formatDate(referral.convertedAt)}
-                </p>
-              </div>
+        {referrals.map((referral, index) => {
+          const hasUtm = referral.utmSource || referral.utmMedium || referral.utmCampaign;
+          
+          return (
+            <motion.div
+              key={referral.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.05 * Math.min(index, 10) }}
+              className="p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium truncate">
+                    {referral.userEmail}
+                  </p>
+                  
+                  {/* UTM info */}
+                  {hasUtm && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {referral.utmSource && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-grey-650 text-grey-200">
+                          {referral.utmSource}
+                        </span>
+                      )}
+                      {referral.utmMedium && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-grey-650 text-grey-300">
+                          {referral.utmMedium}
+                        </span>
+                      )}
+                      {referral.utmCampaign && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-grey-650 text-grey-300">
+                          {referral.utmCampaign}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-grey-300 mt-1">
+                    {formatDate(referral.convertedAt)}
+                  </p>
+                </div>
 
-              <Badge variant="default" size="sm" className="flex items-center gap-1">
-                <Hash className="w-3 h-3" />
-                {referral.codeUsed}
-              </Badge>
-            </div>
-          </motion.div>
-        ))}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <Badge variant="default" size="sm" className="flex items-center gap-1">
+                    <Hash className="w-3 h-3" />
+                    {referral.codeUsed}
+                  </Badge>
+                  {hasUtm && (
+                    <Globe className="w-3 h-3 text-grey-400" />
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </Card>
   );
 }
-

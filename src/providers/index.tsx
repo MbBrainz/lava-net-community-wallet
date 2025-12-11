@@ -17,6 +17,7 @@ import { PWAGate } from "@/components/pwa/PWAGate";
 import { ProtectedLayout } from "@/components/auth/ProtectedLayout";
 import { ReferralCapture } from "@/components/referral/ReferralCapture";
 import { PushHandler } from "@/components/notifications";
+import { SessionRestoreGate } from "@/components/session";
 
 // Routes that should not show the bottom navigation
 const AUTH_ROUTES = ["/login", "/offline"];
@@ -49,23 +50,25 @@ function AppContent({ children }: { children: ReactNode }) {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <DynamicProvider>
-      <AuthProvider>
-        <AppProvider>
-          <SwapProvider>
-            {/* ReferralCapture runs first, before any gates, to capture URL params */}
-            {/* Wrapped in Suspense because useSearchParams requires it for static generation */}
-            <Suspense fallback={null}>
-              <ReferralCapture />
-            </Suspense>
-            {/* PushHandler for foreground notifications */}
-            <PushHandler />
-            <ProtectedLayout>
-              <AppContent>{children}</AppContent>
-            </ProtectedLayout>
-          </SwapProvider>
-        </AppProvider>
-      </AuthProvider>
-    </DynamicProvider>
+    <SessionRestoreGate>
+      <DynamicProvider>
+        <AuthProvider>
+          <AppProvider>
+            <SwapProvider>
+              {/* ReferralCapture runs first, before any gates, to capture URL params */}
+              {/* Wrapped in Suspense because useSearchParams requires it for static generation */}
+              <Suspense fallback={null}>
+                <ReferralCapture />
+              </Suspense>
+              {/* PushHandler for foreground notifications */}
+              <PushHandler />
+              <ProtectedLayout>
+                <AppContent>{children}</AppContent>
+              </ProtectedLayout>
+            </SwapProvider>
+          </AppProvider>
+        </AuthProvider>
+      </DynamicProvider>
+    </SessionRestoreGate>
   );
 }

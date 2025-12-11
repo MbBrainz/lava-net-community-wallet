@@ -16,6 +16,7 @@ export { ReferrerDashboard } from "./ReferrerDashboard";
 export { ReferralCodeList } from "./ReferralCodeList";
 export { CreateCodeModal } from "./CreateCodeModal";
 export { RecentReferralsList } from "./RecentReferralsList";
+export { UTMBreakdown } from "./UTMBreakdown";
 
 // Admin components
 export { AdminDashboard, AdminPendingList, AdminApprovedList, AdminSection } from "./admin";

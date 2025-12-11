@@ -1,8 +1,8 @@
 /**
- * GET /api/referrals-v2/stats
+ * GET /api/referrals/stats
  *
  * Get detailed statistics for an approved referrer.
- * Includes per-code breakdown and recent referrals.
+ * Includes per-code breakdown, UTM analytics, and recent referrals.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -30,6 +30,41 @@ function maskEmail(email: string): string {
   if (!tld) return `${local?.[0] || "*"}***@***`;
 
   return `${local?.[0] || "*"}***@${domainName?.[0] || "*"}***.${tld}`;
+}
+
+/**
+ * Aggregate UTM values from referrals
+ */
+function aggregateUTM(referrals: UserReferral[]) {
+  const sourceMap = new Map<string | null, number>();
+  const mediumMap = new Map<string | null, number>();
+  const campaignMap = new Map<string | null, number>();
+
+  for (const ref of referrals) {
+    // Aggregate sources
+    const source = ref.utmSource || null;
+    sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
+
+    // Aggregate mediums
+    const medium = ref.utmMedium || null;
+    mediumMap.set(medium, (mediumMap.get(medium) || 0) + 1);
+
+    // Aggregate campaigns
+    const campaign = ref.utmCampaign || null;
+    campaignMap.set(campaign, (campaignMap.get(campaign) || 0) + 1);
+  }
+
+  // Convert maps to sorted arrays (highest count first)
+  const toSortedArray = (map: Map<string | null, number>) =>
+    Array.from(map.entries())
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count);
+
+  return {
+    source: toSortedArray(sourceMap),
+    medium: toSortedArray(mediumMap),
+    campaign: toSortedArray(campaignMap),
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -74,6 +109,9 @@ export async function GET(request: NextRequest) {
       .where(eq(userReferrals.referrerId, referrer.id))
       .orderBy(desc(userReferrals.convertedAt));
 
+    // Aggregate UTM breakdown
+    const utmBreakdown = aggregateUTM(allReferrals);
+
     // Get recent referrals (last 50)
     const recentReferrals = allReferrals.slice(0, 50);
 
@@ -83,17 +121,18 @@ export async function GET(request: NextRequest) {
       codeStats: codes.map((code) => ({
         code: code.code,
         label: code.label,
-        utmSource: code.utmSource,
-        utmMedium: code.utmMedium,
-        utmCampaign: code.utmCampaign,
         usageCount: code.usageCount,
         isActive: code.isActive,
         expiresAt: code.expiresAt?.toISOString() || null,
       })),
+      utmBreakdown,
       recentReferrals: recentReferrals.map((ref) => ({
         id: ref.id,
         userEmail: maskEmail(ref.userEmail),
         codeUsed: ref.codeUsed,
+        utmSource: ref.utmSource,
+        utmMedium: ref.utmMedium,
+        utmCampaign: ref.utmCampaign,
         convertedAt: ref.convertedAt.toISOString(),
       })),
     });

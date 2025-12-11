@@ -79,21 +79,6 @@ export const referralCodes = pgTable("referral_codes", {
   /** Optional label for referrer's internal tracking (e.g., "Main link", "Bio link") */
   label: varchar("label", { length: 100 }),
 
-  // ============================================
-  // UTM TRACKING PARAMETERS
-  // ============================================
-
-  /** UTM Source - identifies the source (e.g., "twitter", "discord", "youtube") */
-  utmSource: varchar("utm_source", { length: 100 }),
-
-  /** UTM Medium - identifies the marketing medium (e.g., "social", "email", "cpc") */
-  utmMedium: varchar("utm_medium", { length: 100 }),
-
-  /** UTM Campaign - identifies the campaign name (e.g., "summer2024", "launch") */
-  utmCampaign: varchar("utm_campaign", { length: 100 }),
-
-  // ============================================
-
   /** Whether this code is active (can be used) */
   isActive: boolean("is_active").notNull().default(true),
 
@@ -115,6 +100,7 @@ export const referralCodes = pgTable("referral_codes", {
  * Records which users signed up with which referral codes.
  *
  * Each user can only have one referral record (first attribution wins).
+ * UTM parameters are captured at signup time for analytics.
  */
 export const userReferrals = pgTable("user_referrals", {
   /** Unique identifier */
@@ -138,6 +124,21 @@ export const userReferrals = pgTable("user_referrals", {
   referrerId: uuid("referrer_id")
     .notNull()
     .references(() => referrers.id),
+
+  // ============================================
+  // UTM TRACKING (captured at signup time)
+  // ============================================
+
+  /** UTM Source from the referral link (e.g., "twitter", "discord") */
+  utmSource: varchar("utm_source", { length: 100 }),
+
+  /** UTM Medium from the referral link (e.g., "social", "email") */
+  utmMedium: varchar("utm_medium", { length: 100 }),
+
+  /** UTM Campaign from the referral link (e.g., "summer2024") */
+  utmCampaign: varchar("utm_campaign", { length: 100 }),
+
+  // ============================================
 
   /** When the user signed up */
   convertedAt: timestamp("converted_at").defaultNow().notNull(),

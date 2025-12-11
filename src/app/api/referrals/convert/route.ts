@@ -1,8 +1,9 @@
 /**
- * POST /api/referrals-v2/convert
+ * POST /api/referrals/convert
  *
  * Convert a referral - attribute a new user signup to a referral code.
  * Called when a user signs up with a referral code.
+ * Captures UTM parameters for analytics.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -11,6 +12,7 @@ import { db } from "@/lib/db/client";
 import { referralCodes, userReferrals, type UserReferral } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { validateCode, normalizeCode } from "@/lib/referral/code-generator";
+import { convertReferralSchema } from "@/lib/referral/types";
 
 export async function POST(request: NextRequest) {
   const auth = await getAuthenticatedUser(request);
@@ -20,14 +22,17 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { code } = body;
-
-    if (!code || typeof code !== "string") {
+    
+    // Validate request body
+    const parsed = convertReferralSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "invalid_request", message: "Code is required" },
+        { error: "invalid_request", message: parsed.error.issues[0]?.message || "Invalid request" },
         { status: 400 }
       );
     }
+    
+    const { code, utmSource, utmMedium, utmCampaign } = parsed.data;
 
     const normalizedCode = normalizeCode(code);
 
@@ -68,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     const codeRecord = validation.code!;
 
-    // Create the referral record
+    // Create the referral record with UTM parameters
     const [newReferral] = await db
       .insert(userReferrals)
       .values({
@@ -77,6 +82,9 @@ export async function POST(request: NextRequest) {
         userWalletAddress: null, // Can be updated later
         codeUsed: codeRecord.code,
         referrerId: codeRecord.referrerId,
+        utmSource: utmSource || null,
+        utmMedium: utmMedium || null,
+        utmCampaign: utmCampaign || null,
       })
       .returning();
 

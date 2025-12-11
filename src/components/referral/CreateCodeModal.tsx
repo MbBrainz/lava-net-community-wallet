@@ -3,12 +3,13 @@
 /**
  * CreateCodeModal Component
  *
- * Modal for creating a new referral code with optional UTM tracking parameters.
+ * Modal for creating a new referral code with an optional label.
+ * UTM parameters are captured at signup time, not on the code.
  */
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Plus, Tag, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
+import { motion } from "framer-motion";
+import { Loader2, Plus, Tag } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useAuthFetch } from "@/lib/auth/client";
@@ -21,10 +22,6 @@ interface CreateCodeModalProps {
 
 export function CreateCodeModal({ isOpen, onClose, onSuccess }: CreateCodeModalProps) {
   const [label, setLabel] = useState("");
-  const [utmSource, setUtmSource] = useState("");
-  const [utmMedium, setUtmMedium] = useState("");
-  const [utmCampaign, setUtmCampaign] = useState("");
-  const [showUTM, setShowUTM] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { authFetch, isReady } = useAuthFetch();
@@ -41,9 +38,6 @@ export function CreateCodeModal({ isOpen, onClose, onSuccess }: CreateCodeModalP
         method: "POST",
         body: JSON.stringify({
           label: label.trim() || undefined,
-          utmSource: utmSource.trim() || undefined,
-          utmMedium: utmMedium.trim() || undefined,
-          utmCampaign: utmCampaign.trim() || undefined,
         }),
       });
 
@@ -72,15 +66,9 @@ export function CreateCodeModal({ isOpen, onClose, onSuccess }: CreateCodeModalP
 
   const handleClose = () => {
     setLabel("");
-    setUtmSource("");
-    setUtmMedium("");
-    setUtmCampaign("");
-    setShowUTM(false);
     setError(null);
     onClose();
   };
-
-  const hasUtmValues = utmSource || utmMedium || utmCampaign;
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Create New Code">
@@ -101,7 +89,7 @@ export function CreateCodeModal({ isOpen, onClose, onSuccess }: CreateCodeModalP
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g., Main link, Bio link"
+            placeholder="e.g., Twitter link, Discord bio"
             maxLength={100}
             className="w-full px-4 py-3 bg-grey-650 border border-grey-425 rounded-xl text-white placeholder-grey-300 focus:outline-none focus:ring-2 focus:ring-lava-orange/30 focus:border-lava-orange transition-colors"
           />
@@ -110,100 +98,13 @@ export function CreateCodeModal({ isOpen, onClose, onSuccess }: CreateCodeModalP
           </p>
         </div>
 
-        {/* UTM Parameters Section */}
-        <div className="border border-grey-425/50 rounded-xl overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowUTM(!showUTM)}
-            className="w-full flex items-center justify-between p-3 bg-grey-650/50 hover:bg-grey-650 transition-colors text-left"
-          >
-            <div className="flex items-center gap-2 text-sm font-medium text-grey-100">
-              <BarChart3 className="w-4 h-4" />
-              UTM Tracking
-              {hasUtmValues && (
-                <span className="px-1.5 py-0.5 bg-lava-orange/20 text-lava-orange text-xs rounded-full">
-                  Active
-                </span>
-              )}
-            </div>
-            {showUTM ? (
-              <ChevronUp className="w-4 h-4 text-grey-300" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-grey-300" />
-            )}
-          </button>
-
-          <AnimatePresence>
-            {showUTM && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="p-3 space-y-3 border-t border-grey-425/50">
-                  <p className="text-xs text-grey-300">
-                    Add UTM parameters to track performance in analytics tools
-                  </p>
-
-                  {/* UTM Source */}
-                  <div>
-                    <label htmlFor="utm-source" className="block text-xs font-medium text-grey-200 mb-1">
-                      Source
-                    </label>
-                    <input
-                      id="utm-source"
-                      type="text"
-                      value={utmSource}
-                      onChange={(e) => setUtmSource(e.target.value)}
-                      placeholder="e.g., twitter, youtube, discord"
-                      maxLength={100}
-                      className="w-full px-3 py-2 bg-grey-650 border border-grey-425 rounded-lg text-white text-sm placeholder-grey-400 focus:outline-none focus:ring-2 focus:ring-lava-orange/30 focus:border-lava-orange transition-colors"
-                    />
-                  </div>
-
-                  {/* UTM Medium */}
-                  <div>
-                    <label htmlFor="utm-medium" className="block text-xs font-medium text-grey-200 mb-1">
-                      Medium
-                    </label>
-                    <input
-                      id="utm-medium"
-                      type="text"
-                      value={utmMedium}
-                      onChange={(e) => setUtmMedium(e.target.value)}
-                      placeholder="e.g., social, video, banner"
-                      maxLength={100}
-                      className="w-full px-3 py-2 bg-grey-650 border border-grey-425 rounded-lg text-white text-sm placeholder-grey-400 focus:outline-none focus:ring-2 focus:ring-lava-orange/30 focus:border-lava-orange transition-colors"
-                    />
-                  </div>
-
-                  {/* UTM Campaign */}
-                  <div>
-                    <label htmlFor="utm-campaign" className="block text-xs font-medium text-grey-200 mb-1">
-                      Campaign
-                    </label>
-                    <input
-                      id="utm-campaign"
-                      type="text"
-                      value={utmCampaign}
-                      onChange={(e) => setUtmCampaign(e.target.value)}
-                      placeholder="e.g., summer2024, launch, promo"
-                      maxLength={100}
-                      className="w-full px-3 py-2 bg-grey-650 border border-grey-425 rounded-lg text-white text-sm placeholder-grey-400 focus:outline-none focus:ring-2 focus:ring-lava-orange/30 focus:border-lava-orange transition-colors"
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
         {/* Info Box */}
-        <div className="p-3 bg-grey-650/50 rounded-lg">
+        <div className="p-3 bg-grey-650/50 rounded-lg space-y-2">
           <p className="text-sm text-grey-200">
             A unique 6-character code will be automatically generated.
+          </p>
+          <p className="text-xs text-grey-300">
+            💡 Tip: Add UTM parameters to your links for tracking (e.g., ?ref=CODE&utm_source=twitter)
           </p>
         </div>
 

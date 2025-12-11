@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Plus,
   Hash,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
@@ -26,6 +27,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ReferralCodeList } from "./ReferralCodeList";
 import { CreateCodeModal } from "./CreateCodeModal";
 import { RecentReferralsList } from "./RecentReferralsList";
+import { UTMBreakdown } from "./UTMBreakdown";
 import { useAuthFetch } from "@/lib/auth/client";
 import type { ReferralStatsResponse } from "@/lib/referral/types";
 
@@ -215,11 +217,27 @@ export function ReferrerDashboard() {
           />
         </motion.section>
 
-        {/* Recent Referrals */}
+        {/* UTM Analytics */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
+        >
+          <h2 className="text-sm font-semibold text-grey-100 mb-3 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Traffic Sources
+          </h2>
+          <UTMBreakdown 
+            breakdown={stats.utmBreakdown} 
+            totalReferrals={stats.totalReferrals} 
+          />
+        </motion.section>
+
+        {/* Recent Referrals */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
         >
           <h2 className="text-sm font-semibold text-grey-100 mb-3 flex items-center gap-2">
             <Users className="w-4 h-4" />
