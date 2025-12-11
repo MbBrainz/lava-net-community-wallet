@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Flame, BookOpen, Download, Clock } from "lucide-react";
+import { ArrowRight, Flame, BookOpen, Download, Clock, ArrowRightLeft } from "lucide-react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
+import { useSwap } from "@/context/SwapContext";
 import Image from "next/image";
 import { FEATURES } from "@/lib/features";
 
@@ -21,8 +22,18 @@ interface FeatureCard {
 
 export function FeatureCards() {
   const { isInstalled, setShowInstallBanner } = useApp();
+  const { openSwap } = useSwap();
 
   const cards: FeatureCard[] = [
+    {
+      id: "swap",
+      title: "Get LAVA",
+      description: "Swap any token to LAVA instantly",
+      icon: ArrowRightLeft,
+      action: () => openSwap({ defaultToLava: true, title: "Get LAVA" }),
+      gradient: "from-lava-orange/40 to-lava-gold-drop/30",
+      image: "/lava-brand-kit/mascots/mascot-lavuci-points.png",
+    },
     {
       id: "stake",
       title: "Stake your LAVA",

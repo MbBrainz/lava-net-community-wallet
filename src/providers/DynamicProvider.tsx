@@ -3,13 +3,27 @@
 import { ReactNode } from "react";
 import { DynamicContextProvider, getAuthToken } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
+import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
+import { WagmiProvider } from "wagmi";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CHAIN_CONFIGS } from "@/lib/chains/registry";
+import { wagmiConfig } from "@/lib/wagmi";
 import {
   getReferral,
   clearReferral,
   isReferralExpired,
   clearAllReferralData,
 } from "@/lib/referral/storage";
+
+// Create a stable QueryClient instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000, // 1 minute
+      gcTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 interface DynamicProviderProps {
   children: ReactNode;
@@ -123,6 +137,9 @@ export function DynamicProvider({ children }: DynamicProviderProps) {
       settings={{
         environmentId,
         walletConnectors: [EthereumWalletConnectors],
+        bridgeChains: [{
+           chain: "EVM",
+        }],
 
         // Configure EVM networks with Arbitrum as default
         overrides: {
@@ -172,7 +189,13 @@ export function DynamicProvider({ children }: DynamicProviderProps) {
         termsOfServiceUrl: "https://lavanet.xyz/terms",
       }}
     >
-      {children}
+      <WagmiProvider config={wagmiConfig}>
+        <QueryClientProvider client={queryClient}>
+          <DynamicWagmiConnector>
+            {children}
+          </DynamicWagmiConnector>
+        </QueryClientProvider>
+      </WagmiProvider>
     </DynamicContextProvider>
   );
 }

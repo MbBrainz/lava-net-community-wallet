@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 import { DynamicProvider } from "./DynamicProvider";
 import { AuthProvider } from "@/context/AuthContext";
 import { AppProvider } from "@/context/AppContext";
+import { SwapProvider } from "@/context/SwapContext";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { PWAGate } from "@/components/pwa/PWAGate";
 import { ProtectedLayout } from "@/components/auth/ProtectedLayout";
@@ -50,11 +51,13 @@ export function Providers({ children }: ProvidersProps) {
     <DynamicProvider>
       <AuthProvider>
         <AppProvider>
-          {/* ReferralCapture runs first, before any gates, to capture URL params */}
-          <ReferralCapture />
-          <ProtectedLayout>
-            <AppContent>{children}</AppContent>
-          </ProtectedLayout>
+          <SwapProvider>
+            {/* ReferralCapture runs first, before any gates, to capture URL params */}
+            <ReferralCapture />
+            <ProtectedLayout>
+              <AppContent>{children}</AppContent>
+            </ProtectedLayout>
+          </SwapProvider>
         </AppProvider>
       </AuthProvider>
     </DynamicProvider>

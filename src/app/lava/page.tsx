@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { FEATURES } from "@/lib/features";
 import { useApp } from "@/context/AppContext";
+import { useSwap } from "@/context/SwapContext";
 import { useLavaPrice, formatLavaPrice, formatUsdValue, calculateUsdValue } from "@/lib/hooks";
 import { formatTokenAmount, getChainColor } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
@@ -33,6 +34,7 @@ export default function LavaPage() {
   } = useApp();
 
   const { price: lavaPrice, isLoading: isPriceLoading } = useLavaPrice();
+  const { openSwap } = useSwap();
 
   const [showBridgeModal, setShowBridgeModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -147,7 +149,16 @@ export default function LavaPage() {
           transition={{ delay: 0.2 }}
         >
           <h2 className="text-lg font-semibold text-white mb-3">Quick Actions</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <Button
+              onClick={() => openSwap({ defaultToLava: true, title: "Get LAVA" })}
+              variant="primary"
+              className="flex-col h-auto py-4"
+              disabled={isOffline}
+            >
+              <ArrowRightLeft className="w-5 h-5 mb-1" />
+              <span>Get LAVA</span>
+            </Button>
             <Button
               onClick={() => setShowBridgeModal(true)}
               variant="secondary"
