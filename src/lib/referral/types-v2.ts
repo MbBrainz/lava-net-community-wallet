@@ -150,6 +150,7 @@ export type ReferralStatsResponse = {
     label: string | null;
     usageCount: number;
     isActive: boolean;
+    expiresAt: string | null;
   }>;
   recentReferrals: Array<{
     id: string;
