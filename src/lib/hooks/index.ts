@@ -4,3 +4,5 @@ export type { LavaBalanceResult } from "./useLavaBalance";
 export { useLavaPrice, formatLavaPrice, calculateUsdValue, formatUsdValue } from "./useLavaPrice";
 export type { LavaPriceResult } from "./useLavaPrice";
 
+export { usePushNotifications } from "./usePushNotifications";
+

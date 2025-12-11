@@ -1,19 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bell,
   BellOff,
   CheckCheck,
   Users,
-  Smartphone,
+  Wallet,
+  TrendingUp,
   Settings,
   ChevronRight,
+  AlertCircle,
+  Download,
 } from "lucide-react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
-import { timeAgo } from "@/lib/utils";
+import { useAuthFetch } from "@/lib/auth/client";
+import { timeAgo, isIOS } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -22,7 +26,7 @@ import { Toggle } from "@/components/ui/Toggle";
 
 const notificationIcons = {
   community: Users,
-  app: Smartphone,
+  app: Wallet,
   transaction: Bell,
 };
 
@@ -34,28 +38,104 @@ export default function NotificationsPage() {
     markAllAsRead,
     notificationSettings,
     updateNotificationSettings,
+    // Push notification state from context
+    pushSupported,
+    pushConfigured,
+    pushPermission,
+    pushToken,
+    pushLoading,
+    pushError,
+    requestPushPermission,
+    // PWA state
+    isInstalled,
+    setShowInstallBanner,
   } = useApp();
 
+  const { authFetch, isReady: isAuthReady } = useAuthFetch();
+
   const [showSettings, setShowSettings] = useState(false);
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
-  // Check if push is supported and permission status
-  const isPushSupported = typeof window !== "undefined" && "Notification" in window;
-  const pushPermission =
-    typeof window !== "undefined" && "Notification" in window
-      ? Notification.permission
-      : "default";
+  // Check if push is available (considering iOS requirements)
+  const isIOSDevice = isIOS();
+  const canEnablePush = pushSupported && pushConfigured && (!isIOSDevice || isInstalled);
 
-  const requestPushPermission = async () => {
-    if (!isPushSupported) return;
-
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === "granted") {
-        // In production, this would register the push subscription
-      }
-    } catch {
-      console.log("Push permission request failed");
+  /**
+   * Handle push permission request with iOS install gate.
+   */
+  const handleEnablePush = async () => {
+    if (isIOSDevice && !isInstalled) {
+      // On iOS, show install banner instead
+      setShowInstallBanner(true);
+      return;
     }
+    await requestPushPermission();
+  };
+
+  /**
+   * Sync preferences with backend.
+   */
+  const syncPreferencesToBackend = useCallback(
+    async (preferences: typeof notificationSettings) => {
+      if (!isAuthReady) return;
+
+      setIsSavingPreferences(true);
+      try {
+        await authFetch("/api/notifications/preferences", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(preferences),
+        });
+      } catch (error) {
+        console.error("[Notifications] Failed to sync preferences:", error);
+      } finally {
+        setIsSavingPreferences(false);
+      }
+    },
+    [authFetch, isAuthReady]
+  );
+
+  /**
+   * Load preferences from backend on mount.
+   */
+  useEffect(() => {
+    if (!isAuthReady) return;
+
+    const loadPreferences = async () => {
+      try {
+        const response = await authFetch("/api/notifications/preferences");
+        if (response.ok) {
+          const data = await response.json();
+          updateNotificationSettings(data);
+        }
+      } catch (error) {
+        console.error("[Notifications] Failed to load preferences:", error);
+      }
+    };
+
+    loadPreferences();
+  }, [isAuthReady, authFetch, updateNotificationSettings]);
+
+  /**
+   * Handle preference toggle with backend sync.
+   */
+  const handlePreferenceChange = (key: keyof typeof notificationSettings, value: boolean) => {
+    const newSettings = { ...notificationSettings, [key]: value };
+    updateNotificationSettings({ [key]: value });
+    syncPreferencesToBackend(newSettings);
+  };
+
+  /**
+   * Get push status message for display.
+   */
+  const getPushStatusMessage = () => {
+    if (!pushSupported) return "Not supported in this browser";
+    if (!pushConfigured) return "Not configured";
+    if (isIOSDevice && !isInstalled) return "Install app first (iOS requirement)";
+    if (pushPermission === "denied") return "Blocked in browser settings";
+    if (pushPermission === "granted" && pushToken) return "Enabled";
+    if (pushLoading) return "Enabling...";
+    return "Not enabled";
   };
 
   return (
@@ -100,8 +180,8 @@ export default function NotificationsPage() {
       </motion.header>
 
       <div className="px-4 py-4 space-y-4">
-        {/* Push notification prompt */}
-        {isPushSupported && pushPermission === "default" && (
+        {/* Push notification prompt - show if can enable and not yet enabled */}
+        {canEnablePush && pushPermission === "default" && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -116,10 +196,51 @@ export default function NotificationsPage() {
                     Enable Push Notifications
                   </h3>
                   <p className="text-sm text-grey-200 mb-3">
-                    Get notified about community updates and important announcements
+                    Get notified about community updates, wallet activity, and price alerts
                   </p>
-                  <Button size="sm" onClick={requestPushPermission}>
-                    Enable Notifications
+                  <Button
+                    size="sm"
+                    onClick={handleEnablePush}
+                    disabled={pushLoading}
+                  >
+                    {pushLoading ? "Enabling..." : "Enable Notifications"}
+                  </Button>
+                  {pushError && (
+                    <p className="text-xs text-red-400 mt-2 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {pushError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* iOS install requirement banner */}
+        {isIOSDevice && !isInstalled && pushSupported && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card variant="outline" className="border-lava-orange/30 bg-lava-orange/5">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-lava-orange/20 flex items-center justify-center flex-shrink-0">
+                  <Download className="w-6 h-6 text-lava-orange" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-white mb-1">
+                    Install App for Notifications
+                  </h3>
+                  <p className="text-sm text-grey-200 mb-3">
+                    On iOS, push notifications require the app to be installed to your home screen
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setShowInstallBanner(true)}
+                  >
+                    Install App
                   </Button>
                 </div>
               </div>
@@ -248,30 +369,38 @@ export default function NotificationsPage() {
                     Push Notifications
                   </p>
                   <p className="text-xs text-grey-200">
-                    {pushPermission === "granted"
-                      ? "Enabled"
-                      : pushPermission === "denied"
-                      ? "Blocked in browser settings"
-                      : "Not enabled"}
+                    {getPushStatusMessage()}
                   </p>
                 </div>
               </div>
-              {pushPermission === "default" && (
-                <Button size="sm" onClick={requestPushPermission}>
-                  Enable
+              {canEnablePush && pushPermission === "default" && (
+                <Button
+                  size="sm"
+                  onClick={handleEnablePush}
+                  disabled={pushLoading}
+                >
+                  {pushLoading ? "..." : "Enable"}
                 </Button>
               )}
-              {pushPermission === "granted" && (
+              {pushPermission === "granted" && pushToken && (
                 <Badge variant="success">Active</Badge>
+              )}
+              {pushPermission === "denied" && (
+                <Badge variant="warning">Blocked</Badge>
               )}
             </div>
           </div>
 
           {/* Category toggles */}
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-grey-100 mb-3">
-              Notification Categories
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-grey-100">
+                Notification Categories
+              </h3>
+              {isSavingPreferences && (
+                <span className="text-xs text-grey-200">Saving...</span>
+              )}
+            </div>
 
             <div className="flex items-center justify-between p-4 bg-grey-650/50 rounded-xl">
               <div className="flex items-center gap-3">
@@ -288,25 +417,43 @@ export default function NotificationsPage() {
               <Toggle
                 checked={notificationSettings.communityUpdates}
                 onChange={(checked) =>
-                  updateNotificationSettings({ communityUpdates: checked })
+                  handlePreferenceChange("communityUpdates", checked)
                 }
               />
             </div>
 
             <div className="flex items-center justify-between p-4 bg-grey-650/50 rounded-xl">
               <div className="flex items-center gap-3">
-                <Smartphone className="w-5 h-5 text-green-400" />
+                <Wallet className="w-5 h-5 text-green-400" />
                 <div>
-                  <p className="text-sm font-medium text-white">App Updates</p>
+                  <p className="text-sm font-medium text-white">Wallet Alerts</p>
                   <p className="text-xs text-grey-200">
-                    New features and improvements
+                    Transaction confirmations, balance changes
                   </p>
                 </div>
               </div>
               <Toggle
-                checked={notificationSettings.appUpdates}
+                checked={notificationSettings.walletAlerts}
                 onChange={(checked) =>
-                  updateNotificationSettings({ appUpdates: checked })
+                  handlePreferenceChange("walletAlerts", checked)
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-grey-650/50 rounded-xl">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="w-5 h-5 text-blue-400" />
+                <div>
+                  <p className="text-sm font-medium text-white">Price Alerts</p>
+                  <p className="text-xs text-grey-200">
+                    LAVA price changes and market updates
+                  </p>
+                </div>
+              </div>
+              <Toggle
+                checked={notificationSettings.priceAlerts}
+                onChange={(checked) =>
+                  handlePreferenceChange("priceAlerts", checked)
                 }
               />
             </div>
@@ -325,4 +472,3 @@ export default function NotificationsPage() {
     </div>
   );
 }
-

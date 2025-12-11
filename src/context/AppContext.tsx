@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { useAuth, AuthUser } from "@/context/AuthContext";
 import { useLavaBalance } from "@/lib/hooks/useLavaBalance";
+import { usePushNotifications } from "@/lib/hooks/usePushNotifications";
 import { WalletTransaction } from "@/lib/wallet";
 import { useAuthFetch } from "@/lib/auth/client";
 import {
@@ -26,7 +27,8 @@ type Theme = "light" | "dark" | "system";
 
 interface NotificationSettings {
   communityUpdates: boolean;
-  appUpdates: boolean;
+  walletAlerts: boolean;
+  priceAlerts: boolean;
 }
 
 interface AppContextType {
@@ -74,6 +76,16 @@ interface AppContextType {
   // Notification settings
   notificationSettings: NotificationSettings;
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
+
+  // Push notifications
+  pushSupported: boolean;
+  pushConfigured: boolean;
+  pushPermission: NotificationPermission;
+  pushToken: string | null;
+  pushLoading: boolean;
+  pushError: string | null;
+  requestPushPermission: () => Promise<boolean>;
+  unregisterPush: () => Promise<void>;
 
   // PWA
   isInstalled: boolean;
@@ -140,11 +152,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notificationSettings, setNotificationSettings] =
     useState<NotificationSettings>({
       communityUpdates: true,
-      appUpdates: true,
+      walletAlerts: true,
+      priceAlerts: true,
     });
 
-  // PWA state
+  // PWA state (must be before push notifications for iOS gate)
   const [isInstalled, setIsInstalled] = useState(false);
+
+  // Push notifications
+  const {
+    isSupported: pushSupported,
+    isConfigured: pushConfigured,
+    permission: pushPermission,
+    token: pushToken,
+    isLoading: pushLoading,
+    error: pushError,
+    requestPermission: requestPushPermissionBase,
+    unregister: unregisterPush,
+  } = usePushNotifications();
+
+  /**
+   * Request push permission - gated behind PWA installation on iOS.
+   * iOS requires the app to be installed to the home screen for push to work.
+   */
+  const requestPushPermission = useCallback(async (): Promise<boolean> => {
+    // Check if we're on iOS and not installed
+    const isIOSDevice = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (isIOSDevice && !isInstalled) {
+      console.warn("[Push] iOS requires app to be installed for push notifications");
+      return false;
+    }
+    return requestPushPermissionBase();
+  }, [isInstalled, requestPushPermissionBase]);
+
+  // PWA state (continued)
   const [canInstall, setCanInstall] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
@@ -390,6 +431,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setTheme,
         notificationSettings,
         updateNotificationSettings,
+        pushSupported,
+        pushConfigured,
+        pushPermission,
+        pushToken,
+        pushLoading,
+        pushError,
+        requestPushPermission,
+        unregisterPush,
         isInstalled,
         canInstall,
         installPromptEvent,

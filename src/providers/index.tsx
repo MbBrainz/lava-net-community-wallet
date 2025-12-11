@@ -16,6 +16,7 @@ import { BottomNav } from "@/components/navigation/BottomNav";
 import { PWAGate } from "@/components/pwa/PWAGate";
 import { ProtectedLayout } from "@/components/auth/ProtectedLayout";
 import { ReferralCapture } from "@/components/referral/ReferralCapture";
+import { PushHandler } from "@/components/notifications";
 
 // Routes that should not show the bottom navigation
 const AUTH_ROUTES = ["/login", "/offline"];
@@ -54,6 +55,8 @@ export function Providers({ children }: ProvidersProps) {
           <SwapProvider>
             {/* ReferralCapture runs first, before any gates, to capture URL params */}
             <ReferralCapture />
+            {/* PushHandler for foreground notifications */}
+            <PushHandler />
             <ProtectedLayout>
               <AppContent>{children}</AppContent>
             </ProtectedLayout>
