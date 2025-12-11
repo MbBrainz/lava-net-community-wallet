@@ -118,3 +118,4 @@ export function AdminApprovedList({
     </Card>
   );
 }
+

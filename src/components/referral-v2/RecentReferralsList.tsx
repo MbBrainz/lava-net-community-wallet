@@ -89,3 +89,4 @@ export function RecentReferralsList({ referrals }: RecentReferralsListProps) {
     </Card>
   );
 }
+

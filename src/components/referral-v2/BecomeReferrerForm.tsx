@@ -120,3 +120,4 @@ export function BecomeReferrerForm({ onSuccess }: BecomeReferrerFormProps) {
     </Card>
   );
 }
+

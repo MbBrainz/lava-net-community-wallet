@@ -148,3 +148,4 @@ export function ReferralCodeList({ codes, onRefresh }: ReferralCodeListProps) {
     </Card>
   );
 }
+

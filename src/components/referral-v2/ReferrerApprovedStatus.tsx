@@ -135,3 +135,4 @@ export function ReferrerApprovedStatus({ codes, canSendNotifications }: Referrer
     </Card>
   );
 }
+

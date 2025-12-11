@@ -144,3 +144,4 @@ export function CreateCodeModal({ isOpen, onClose, onSuccess }: CreateCodeModalP
     </Modal>
   );
 }
+
