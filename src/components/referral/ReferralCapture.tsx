@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { saveReferral, getReferral } from "@/lib/referral/storage";
 import { REFERRAL_CONFIG } from "@/lib/referral/constants";
-import { isValidCodeFormat } from "@/lib/referral/code-generator";
+import { isValidCodeFormat } from "@/lib/referral/validation";
 
 export function ReferralCapture() {
   const searchParams = useSearchParams();

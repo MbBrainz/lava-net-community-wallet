@@ -3,23 +3,19 @@
  *
  * Generates unique 6-character alphanumeric codes.
  * Uses a charset that avoids ambiguous characters (0/O, 1/I/l).
+ *
+ * NOTE: This file imports the database client and should only be used
+ * in server-side code. For client-safe validation functions, use
+ * './validation' instead.
  */
 
 import { db } from "@/lib/db/client";
 import { referralCodes, type ReferralCode } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { CHARSET, CODE_LENGTH, isValidCodeFormat, normalizeCode } from "./validation";
 
-/**
- * Character set for code generation.
- * Excludes ambiguous characters: 0, O, I, l, 1
- * Total: 32 characters (uppercase + digits)
- */
-const CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-/**
- * Code length (6 characters = 32^6 = 1+ billion possible codes)
- */
-const CODE_LENGTH = 6;
+// Re-export client-safe utilities for convenience in server code
+export { isValidCodeFormat, normalizeCode } from "./validation";
 
 /**
  * Maximum attempts to generate a unique code before failing.
@@ -70,29 +66,6 @@ export async function generateUniqueCode(): Promise<string> {
   );
 }
 
-/**
- * Validate a code format (6 uppercase alphanumeric characters).
- * Does NOT check if the code exists or is active.
- */
-export function isValidCodeFormat(code: string): boolean {
-  if (!code || typeof code !== "string") return false;
-  if (code.length !== CODE_LENGTH) return false;
-
-  // Check each character is in our charset
-  for (const char of code.toUpperCase()) {
-    if (!CHARSET.includes(char)) return false;
-  }
-
-  return true;
-}
-
-/**
- * Normalize a code to uppercase.
- * Codes are case-insensitive for user input.
- */
-export function normalizeCode(code: string): string {
-  return code.toUpperCase().trim();
-}
 
 /**
  * Check if a code exists and is valid for use.
