@@ -5,9 +5,20 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   ReactNode,
 } from "react";
-import { SwapWidget } from "@/components/swap";
+import dynamic from "next/dynamic";
+
+/**
+ * Dynamically import SwapWidget to create a separate chunk.
+ * This keeps LI.FI (~2-3MB) out of the main bundle.
+ * The chunk is still precached by the service worker for PWA.
+ */
+const SwapWidget = dynamic(
+  () => import("@/components/swap/SwapWidget").then((mod) => mod.SwapWidget),
+  { ssr: false }
+);
 
 interface SwapOptions {
   /** Whether to default to LAVA as destination token (default: true) */
@@ -38,6 +49,15 @@ export function SwapProvider({ children }: SwapProviderProps) {
     title: "Swap",
   });
 
+  // Background prefetch: Load SwapWidget chunk after app settles
+  // This ensures the swap is instant when user clicks "Get LAVA"
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      import("@/components/swap/SwapWidget");
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const openSwap = useCallback((opts?: SwapOptions) => {
     setOptions({
       defaultToLava: opts?.defaultToLava ?? true,
@@ -59,12 +79,15 @@ export function SwapProvider({ children }: SwapProviderProps) {
       }}
     >
       {children}
-      <SwapWidget
-        isOpen={isOpen}
-        onClose={closeSwap}
-        defaultToLava={options.defaultToLava}
-        title={options.title}
-      />
+      {/* Only mount when open - triggers chunk load if not prefetched */}
+      {isOpen && (
+        <SwapWidget
+          isOpen={isOpen}
+          onClose={closeSwap}
+          defaultToLava={options.defaultToLava}
+          title={options.title}
+        />
+      )}
     </SwapContext.Provider>
   );
 }
