@@ -1,85 +1,139 @@
 /**
  * GET /api/referrals/stats
  *
- * Purpose: Get dashboard statistics for approved code owner
- * Auth required: Yes (verified via JWT token)
- *
- * Headers:
- * - Authorization: Bearer <token>
- *
- * Responses:
- * - { code, totalReferrals, referrals: [...] }
- * - { error: "not_approved", message: "..." }
- * - { error: "no_code", message: "..." }
- * - { error: "unauthorized", message: "..." } (401)
+ * Get detailed statistics for an approved referrer.
+ * Includes per-code breakdown, UTM analytics, and recent referrals.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db/client";
-import { referrerCodes, userReferrals } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
-import { maskEmail } from "@/lib/referral";
 import { getAuthenticatedUser } from "@/lib/auth/server";
+import { db } from "@/lib/db/client";
+import {
+  referrers,
+  referralCodes,
+  userReferrals,
+  type UserReferral,
+} from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
+
+/**
+ * Mask an email address for privacy.
+ * "user@example.com" → "u***@e***.com"
+ */
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***@***.***";
+
+  const [domainName, tld] = domain.split(".");
+  if (!tld) return `${local?.[0] || "*"}***@***`;
+
+  return `${local?.[0] || "*"}***@${domainName?.[0] || "*"}***.${tld}`;
+}
+
+/**
+ * Aggregate UTM values from referrals
+ */
+function aggregateUTM(referrals: UserReferral[]) {
+  const sourceMap = new Map<string | null, number>();
+  const mediumMap = new Map<string | null, number>();
+  const campaignMap = new Map<string | null, number>();
+
+  for (const ref of referrals) {
+    // Aggregate sources
+    const source = ref.utmSource || null;
+    sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
+
+    // Aggregate mediums
+    const medium = ref.utmMedium || null;
+    mediumMap.set(medium, (mediumMap.get(medium) || 0) + 1);
+
+    // Aggregate campaigns
+    const campaign = ref.utmCampaign || null;
+    campaignMap.set(campaign, (campaignMap.get(campaign) || 0) + 1);
+  }
+
+  // Convert maps to sorted arrays (highest count first)
+  const toSortedArray = (map: Map<string | null, number>) =>
+    Array.from(map.entries())
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count);
+
+  return {
+    source: toSortedArray(sourceMap),
+    medium: toSortedArray(mediumMap),
+    campaign: toSortedArray(campaignMap),
+  };
+}
 
 export async function GET(request: NextRequest) {
+  const auth = await getAuthenticatedUser(request);
+  if (!auth.success) {
+    return auth.response;
+  }
+
   try {
-    // Verify authentication via JWT
-    const auth = await getAuthenticatedUser(request);
-    if (!auth.success) {
-      return auth.response;
-    }
-
-    // Get user's approved code using the VERIFIED email
-    const userCode = await db.query.referrerCodes.findFirst({
-      where: and(
-        eq(referrerCodes.ownerEmail, auth.user.email),
-        eq(referrerCodes.isApproved, true)
-      ),
+    // Find referrer with codes and referrals in a single query
+    const referrer = await db.query.referrers.findFirst({
+      where: eq(referrers.email, auth.user.email ?? ""),
+      with: {
+        codes: {
+          orderBy: desc(referralCodes.usageCount),
+        },
+        referrals: {
+          orderBy: desc(userReferrals.convertedAt),
+        },
+      },
     });
 
-    if (!userCode) {
-      // Check if they have a pending code
-      const pendingCode = await db.query.referrerCodes.findFirst({
-        where: eq(referrerCodes.ownerEmail, auth.user.email),
-      });
-
-      if (pendingCode) {
-        return NextResponse.json({
-          error: "not_approved",
-          message: "Your referral code is still pending approval",
-        });
-      }
-
-      return NextResponse.json({
-        error: "no_code",
-        message: "You don't have a referral code",
-      });
+    if (!referrer) {
+      return NextResponse.json(
+        { error: "not_referrer", message: "You are not a referrer" },
+        { status: 403 }
+      );
     }
 
-    // Get all referrals for this code
-    const referrals = await db.query.userReferrals.findMany({
-      where: eq(userReferrals.referrerCode, userCode.code),
-      orderBy: [desc(userReferrals.convertedAt)],
-    });
+    if (!referrer.isApproved) {
+      return NextResponse.json(
+        { error: "not_approved", message: "Your referrer account is pending approval" },
+        { status: 403 }
+      );
+    }
 
-    // Mask emails and format response
-    const maskedReferrals = referrals.map((r) => ({
-      id: r.id,
-      userEmail: maskEmail(r.userEmail),
-      convertedAt: r.convertedAt.toISOString(),
-      tag: r.customTag,
-      source: r.source,
-    }));
+    // Extract codes and referrals from relations
+    const codes = referrer.codes;
+    const allReferrals = referrer.referrals;
+
+    // Aggregate UTM breakdown
+    const utmBreakdown = aggregateUTM(allReferrals);
+
+    // Get recent referrals (last 50)
+    const recentReferrals = allReferrals.slice(0, 50);
 
     return NextResponse.json({
-      code: userCode.code,
-      totalReferrals: referrals.length,
-      referrals: maskedReferrals,
+      referrerId: referrer.id,
+      totalReferrals: allReferrals.length,
+      codeStats: codes.map((code) => ({
+        code: code.code,
+        label: code.label,
+        usageCount: code.usageCount,
+        isActive: code.isActive,
+        expiresAt: code.expiresAt?.toISOString() || null,
+      })),
+      utmBreakdown,
+      recentReferrals: recentReferrals.map((ref) => ({
+        id: ref.id,
+        userEmail: maskEmail(ref.userEmail),
+        codeUsed: ref.codeUsed,
+        utmSource: ref.utmSource,
+        utmMedium: ref.utmMedium,
+        utmCampaign: ref.utmCampaign,
+        convertedAt: ref.convertedAt.toISOString(),
+      })),
     });
   } catch (error) {
-    console.error("[Stats] Error:", error);
+    console.error("[Referrals] Failed to get stats:", error);
     return NextResponse.json(
-      { error: "server_error", message: "Internal server error" },
+      { error: "server_error", message: "Failed to get referral stats" },
       { status: 500 }
     );
   }

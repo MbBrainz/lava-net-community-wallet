@@ -1,113 +1,117 @@
 "use client";
 
 /**
- * AdminPendingList Component
+ * AdminPendingList Component (v2)
  *
- * List of pending referral codes with approve/reject buttons.
+ * Displays list of pending referrer requests with approve/reject actions.
  */
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Check, X, Loader2, Clock } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { formatDate } from "@/lib/referral";
 
-interface PendingCode {
-  code: string;
-  ownerEmail: string;
+interface PendingReferrer {
+  referrerId: string;
+  email: string;
   requestedAt: string;
 }
 
 interface AdminPendingListProps {
-  pendingCodes: PendingCode[];
-  onAction: (code: string, action: "approve" | "reject") => Promise<void>;
+  pendingReferrers: PendingReferrer[];
+  onAction: (
+    referrerId: string,
+    action: "approve" | "reject"
+  ) => Promise<void>;
 }
 
-export function AdminPendingList({ pendingCodes, onAction }: AdminPendingListProps) {
-  const [loadingCode, setLoadingCode] = useState<string | null>(null);
-  const [loadingAction, setLoadingAction] = useState<"approve" | "reject" | null>(null);
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
-  const handleAction = async (code: string, action: "approve" | "reject") => {
-    setLoadingCode(code);
-    setLoadingAction(action);
+export function AdminPendingList({
+  pendingReferrers,
+  onAction,
+}: AdminPendingListProps) {
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const handleAction = async (
+    referrerId: string,
+    action: "approve" | "reject"
+  ) => {
+    setProcessingId(referrerId);
     try {
-      await onAction(code, action);
+      await onAction(referrerId, action);
     } finally {
-      setLoadingCode(null);
-      setLoadingAction(null);
+      setProcessingId(null);
     }
   };
 
-  if (pendingCodes.length === 0) {
+  if (pendingReferrers.length === 0) {
     return (
-      <div className="py-8 text-center">
-        <Clock className="w-10 h-10 text-grey-300 mx-auto mb-3" />
-        <p className="text-grey-200">No pending requests</p>
-      </div>
+      <Card variant="glass">
+        <div className="py-6 text-center">
+          <Clock className="w-8 h-8 text-grey-300 mx-auto mb-2" />
+          <p className="text-grey-200">No pending requests</p>
+        </div>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <AnimatePresence mode="popLayout">
-        {pendingCodes.map((item) => (
+    <Card variant="glass" padding="none">
+      <div className="divide-y divide-grey-425/30">
+        {pendingReferrers.map((referrer, index) => (
           <motion.div
-            key={item.code}
-            layout
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            key={referrer.referrerId}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.05 * index }}
+            className="p-4"
           >
-            <Card variant="glass" padding="none">
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-lg truncate">
-                      {item.code}
-                    </p>
-                    <p className="text-sm text-grey-200 truncate">{item.ownerEmail}</p>
-                    <p className="text-xs text-grey-300 mt-1">
-                      Requested {formatDate(item.requestedAt)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleAction(item.code, "reject")}
-                      disabled={loadingCode === item.code}
-                      className="!bg-red-500/10 hover:!bg-red-500/20 !text-red-400 border-red-500/30"
-                    >
-                      {loadingCode === item.code && loadingAction === "reject" ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <X className="w-4 h-4" />
-                      )}
-                    </Button>
-
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleAction(item.code, "approve")}
-                      disabled={loadingCode === item.code}
-                      className="!bg-green-500/10 hover:!bg-green-500/20 !text-green-400 border-green-500/30"
-                    >
-                      {loadingCode === item.code && loadingAction === "approve" ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Check className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium truncate">{referrer.email}</p>
+                <p className="text-xs text-grey-300 mt-0.5">
+                  Requested {formatDate(referrer.requestedAt)}
+                </p>
               </div>
-            </Card>
+
+              <div className="flex items-center gap-2">
+                {processingId === referrer.referrerId ? (
+                  <Loader2 className="w-5 h-5 text-grey-300 animate-spin" />
+                ) : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleAction(referrer.referrerId, "reject")}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleAction(referrer.referrerId, "approve")}
+                      className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           </motion.div>
         ))}
-      </AnimatePresence>
-    </div>
+      </div>
+    </Card>
   );
 }
 

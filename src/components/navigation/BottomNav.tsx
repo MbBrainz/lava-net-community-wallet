@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Home, Flame, Users, Bell, Settings } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useNotificationInbox } from "@/context/NotificationInboxContext";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -17,12 +17,12 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { unreadCount } = useApp();
+  const { unreadCount } = useNotificationInbox();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
       {/* Glassmorphism background */}
-      <div className="absolute inset-0 bg-grey-650/90 backdrop-blur-xl border-t border-white/5" />
+      <div className="absolute inset-0 bg-grey-650/90 backdrop-blur-xl border-t border-white/5 backdrop-stable" />
       
       <div className="relative flex items-center justify-around h-[var(--bottom-nav-height)] max-w-lg mx-auto px-2">
         {navItems.map((item) => {

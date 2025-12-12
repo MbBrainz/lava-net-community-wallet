@@ -1,191 +1,197 @@
 /**
- * GET/POST /api/admin/referrals
+ * /api/admin-v2/referrers
  *
- * GET: Get list of pending and approved referrals for admin panel
- * POST: Approve or reject a pending referral code
- *
- * Auth required: Yes (verified via JWT token) + Must be admin
- *
- * Headers:
- * - Authorization: Bearer <token>
+ * GET: List all referrers (pending and approved)
+ * PATCH: Approve/reject a referrer, toggle notifications
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db/client";
-import { referrerCodes } from "@/lib/db/schema";
-import { eq, desc, and, ne } from "drizzle-orm";
-import { adminActionSchema } from "@/lib/referral";
 import { requireAdmin } from "@/lib/auth/server";
+import { db } from "@/lib/db/client";
+import { referrers } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
+import { adminReferrerActionSchema } from "@/lib/referral/types";
 
 /**
- * GET /api/admin/referrals
+ * GET /api/admin-v2/referrers
  *
- * Returns lists of pending and approved referral codes with stats.
+ * List all referrers with their stats.
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  if (!auth.success) {
+    return auth.response;
+  }
+
   try {
-    // Verify authentication and admin status
-    const auth = await requireAdmin(request);
-    if (!auth.success) {
-      return auth.response;
-    }
-
-    // Get pending codes
-    const pending = await db.query.referrerCodes.findMany({
-      where: eq(referrerCodes.isApproved, false),
-      orderBy: [desc(referrerCodes.requestedAt)],
-    });
-
-    // Get approved codes with referral counts
-    const approved = await db.query.referrerCodes.findMany({
-      where: eq(referrerCodes.isApproved, true),
+    // Get all referrers with their codes and referrals in a single query
+    const allReferrers = await db.query.referrers.findMany({
       with: {
+        codes: true,
         referrals: true,
       },
-      orderBy: [desc(referrerCodes.approvedAt)],
+      orderBy: desc(referrers.createdAt),
     });
 
-    // Map to response format
-    const pendingResponse = pending.map((code) => ({
-      code: code.code,
-      ownerEmail: code.ownerEmail,
-      requestedAt: code.requestedAt.toISOString(),
+    // Calculate stats from relations
+    const referrerStats = allReferrers.map((referrer) => ({
+      referrer,
+      codeCount: referrer.codes.length,
+      totalReferrals: referrer.referrals.length,
     }));
 
-    const approvedResponse = approved.map((code) => ({
-      code: code.code,
-      ownerEmail: code.ownerEmail,
-      approvedAt: code.approvedAt?.toISOString() || null,
-      referralCount: code.referrals?.length || 0,
-    }));
+    // Split into pending and approved
+    const pending = referrerStats
+      .filter((r) => !r.referrer.isApproved)
+      .map((r) => ({
+        referrerId: r.referrer.id,
+        email: r.referrer.email,
+        requestedAt: r.referrer.createdAt.toISOString(),
+      }));
 
-    return NextResponse.json({
-      pending: pendingResponse,
-      approved: approvedResponse,
-    });
+    const approved = referrerStats
+      .filter((r) => r.referrer.isApproved)
+      .map((r) => ({
+        referrerId: r.referrer.id,
+        email: r.referrer.email,
+        approvedAt: r.referrer.approvedAt?.toISOString() || r.referrer.updatedAt.toISOString(),
+        codeCount: r.codeCount,
+        totalReferrals: r.totalReferrals,
+        canSendNotifications: r.referrer.canSendNotifications,
+      }));
+
+    return NextResponse.json({ pending, approved });
   } catch (error) {
-    console.error("[Admin Referrals GET] Error:", error);
+    console.error("[Admin] Failed to list referrers:", error);
     return NextResponse.json(
-      { error: "server_error", message: "Internal server error" },
+      { error: "server_error", message: "Failed to list referrers" },
       { status: 500 }
     );
   }
 }
 
 /**
- * POST /api/admin/referrals
+ * PATCH /api/admin-v2/referrers
  *
- * Approve or reject a pending referral code.
+ * Perform admin action on a referrer.
+ * Actions: approve, reject, enable_notifications, disable_notifications
  */
-export async function POST(request: NextRequest) {
+export async function PATCH(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  if (!auth.success) {
+    return auth.response;
+  }
+
   try {
-    // Verify authentication and admin status
-    const auth = await requireAdmin(request);
-    if (!auth.success) {
-      return auth.response;
-    }
-
     const body = await request.json();
+    const parsed = adminReferrerActionSchema.safeParse(body);
 
-    // Validate request body
-    const parseResult = adminActionSchema.safeParse(body);
-    if (!parseResult.success) {
+    if (!parsed.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "invalid_request",
-          message: parseResult.error.issues[0]?.message || "Invalid request",
-        },
+        { error: "invalid_request", message: parsed.error.issues[0]?.message },
         { status: 400 }
       );
     }
 
-    const { code, action } = parseResult.data;
+    const { referrerId, action } = parsed.data;
 
-    // Get the code
-    const codeRecord = await db.query.referrerCodes.findFirst({
-      where: eq(referrerCodes.code, code),
+    // Find the referrer
+    const referrer = await db.query.referrers.findFirst({
+      where: eq(referrers.id, referrerId),
     });
 
-    if (!codeRecord) {
-      return NextResponse.json({
-        success: false,
-        error: "not_found",
-        message: "Code not found",
-      });
+    if (!referrer) {
+      return NextResponse.json(
+        { error: "not_found", message: "Referrer not found" },
+        { status: 404 }
+      );
     }
 
-    // Handle reject action
-    if (action === "reject") {
-      await db.delete(referrerCodes).where(eq(referrerCodes.code, code));
+    switch (action) {
+      case "approve": {
+        if (referrer.isApproved) {
+          return NextResponse.json(
+            { error: "already_approved", message: "Referrer is already approved" },
+            { status: 400 }
+          );
+        }
 
-      // Log without PII in production
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Admin] Code rejected:", code);
-      }
-      return NextResponse.json({
-        success: true,
-        action: "reject",
-        code,
-      });
-    }
+        await db
+          .update(referrers)
+          .set({
+            isApproved: true,
+            approvedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(referrers.id, referrerId));
 
-    // Handle approve action
-    if (action === "approve") {
-      // Check if already approved
-      if (codeRecord.isApproved) {
         return NextResponse.json({
-          success: false,
-          error: "already_approved",
-          message: "This code is already approved",
+          success: true,
+          action: "approved",
+          referrerId,
         });
       }
 
-      // Check if another approved code with same name exists (different owner)
-      const existingApproved = await db.query.referrerCodes.findFirst({
-        where: and(
-          eq(referrerCodes.code, code),
-          eq(referrerCodes.isApproved, true),
-          ne(referrerCodes.ownerEmail, codeRecord.ownerEmail)
-        ),
-      });
+      case "reject": {
+        // Delete the referrer (and cascade to their codes/referrals)
+        await db.delete(referrers).where(eq(referrers.id, referrerId));
 
-      if (existingApproved) {
         return NextResponse.json({
-          success: false,
-          error: "code_taken",
-          message: "An approved code with this name already exists",
+          success: true,
+          action: "rejected",
+          referrerId,
         });
       }
 
-      // Approve the code
-      await db
-        .update(referrerCodes)
-        .set({
-          isApproved: true,
-          approvedAt: new Date(),
-        })
-        .where(eq(referrerCodes.code, code));
+      case "enable_notifications": {
+        if (!referrer.isApproved) {
+          return NextResponse.json(
+            { error: "not_approved", message: "Cannot enable notifications for unapproved referrer" },
+            { status: 400 }
+          );
+        }
 
-      // Log without PII in production
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Admin] Code approved:", code);
+        await db
+          .update(referrers)
+          .set({
+            canSendNotifications: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(referrers.id, referrerId));
+
+        return NextResponse.json({
+          success: true,
+          action: "notifications_enabled",
+          referrerId,
+        });
       }
-      return NextResponse.json({
-        success: true,
-        action: "approve",
-        code,
-      });
-    }
 
-    return NextResponse.json(
-      { success: false, error: "invalid_action", message: "Invalid action" },
-      { status: 400 }
-    );
+      case "disable_notifications": {
+        await db
+          .update(referrers)
+          .set({
+            canSendNotifications: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(referrers.id, referrerId));
+
+        return NextResponse.json({
+          success: true,
+          action: "notifications_disabled",
+          referrerId,
+        });
+      }
+
+      default:
+        return NextResponse.json(
+          { error: "invalid_action", message: "Unknown action" },
+          { status: 400 }
+        );
+    }
   } catch (error) {
-    console.error("[Admin Referrals POST] Error:", error);
+    console.error("[Admin] Failed to update referrer:", error);
     return NextResponse.json(
-      { success: false, error: "server_error", message: "Internal server error" },
+      { error: "server_error", message: "Failed to update referrer" },
       { status: 500 }
     );
   }

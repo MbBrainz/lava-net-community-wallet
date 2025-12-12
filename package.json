@@ -7,23 +7,32 @@
     "dev:webpack": "next dev",
     "dev:https": "pnpm dev & local-ssl-proxy --source 3001 --target 3000 --cert localhost.pem --key localhost-key.pem",
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "concurrently \"pnpm lint\" \"pnpm typecheck\"",
+    "migrate:referrals": "tsx scripts/migrate-referrals.ts"
   },
   "dependencies": {
-    "@dynamic-labs/ethereum": "^4.48.2",
-    "@dynamic-labs/sdk-react-core": "^4.48.2",
+    "@dynamic-labs/ethereum": "^4.49.0",
+    "@dynamic-labs/sdk-react-core": "^4.49.0",
+    "@dynamic-labs/wagmi-connector": "^4.49.0",
+    "@lifi/wallet-management": "^3.20.1",
+    "@lifi/widget": "^3.37.0",
     "@neondatabase/serverless": "^1.0.2",
     "@serwist/next": "^9.2.3",
     "@serwist/precaching": "^9.2.3",
     "@serwist/sw": "^9.2.3",
     "@tanstack/react-query": "^5.90.12",
+    "@wagmi/core": "^2.22.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.0",
     "drizzle-zod": "^0.8.3",
+    "firebase": "^12.6.0",
+    "firebase-admin": "^13.6.0",
     "framer-motion": "^11.18.2",
     "jose": "^6.1.3",
     "lucide-react": "^0.460.0",
@@ -34,9 +43,11 @@
     "serwist": "^9.2.3",
     "tailwind-merge": "^2.6.0",
     "viem": "^2.41.2",
+    "wagmi": "^2.19.5",
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^15.5.7",
     "@eslint/eslintrc": "^3.3.3",
     "@types/node": "^22.19.1",
     "@types/qrcode": "^1.5.6",
@@ -45,6 +56,7 @@
     "@typescript-eslint/eslint-plugin": "^8.48.1",
     "@typescript-eslint/parser": "^8.48.1",
     "autoprefixer": "^10.4.22",
+    "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.8",
     "eslint": "^9.39.1",
     "eslint-config-next": "^15.5.7",
@@ -52,6 +64,7 @@
     "pino-pretty": "^13.1.3",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.18",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }

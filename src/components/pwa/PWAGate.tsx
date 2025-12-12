@@ -16,8 +16,8 @@ import {
   LogIn,
 } from "lucide-react";
 import Image from "next/image";
-import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { usePwa } from "@/context/PwaContext";
 import { isIOS, isAndroid, isPWA } from "@/lib/utils";
 
 // Storage key for tracking iOS PWA first launch
@@ -33,7 +33,8 @@ export function PWAGate({ children }: PWAGateProps) {
     canInstall,
     installPromptEvent,
     setInstallPromptEvent,
-  } = useApp();
+    trackPwaInstallEvent,
+  } = usePwa();
   
   const { isAuthenticated, isInitialized } = useAuth();
 
@@ -96,12 +97,23 @@ export function PWAGate({ children }: PWAGateProps) {
   const handleInstallClick = async () => {
     if (installPromptEvent) {
       setInstalling(true);
+      void trackPwaInstallEvent({
+        eventType: "install_flow_started",
+        triggeredBy: "pwa_gate",
+        installSurface: "pwa_gate_cta",
+      });
       try {
         await installPromptEvent.prompt();
         const { outcome } = await installPromptEvent.userChoice;
         if (outcome === "accepted") {
           // App will reload in standalone mode
         }
+        void trackPwaInstallEvent({
+          eventType: outcome === "accepted" ? "prompt_accepted" : "prompt_dismissed",
+          triggeredBy: "pwa_gate",
+          installSurface: "pwa_gate_cta",
+          metadata: { outcome },
+        });
       } catch {
         console.log("Install prompt failed");
       } finally {
@@ -713,7 +725,7 @@ function IOSWelcomeBack({ onDismiss }: { onDismiss: () => void }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm backdrop-stable p-4"
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
