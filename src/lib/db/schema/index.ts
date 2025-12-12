@@ -44,3 +44,13 @@ export type {
   NotificationPreferenceKey,
   NotificationTopic,
 } from "./push";
+
+// ============================================
+// USER NOTIFICATIONS SCHEMA (INBOX)
+// ============================================
+export { userNotifications, NOTIFICATION_TYPES } from "./notifications";
+export type {
+  UserNotification,
+  NewUserNotification,
+  NotificationType,
+} from "./notifications";

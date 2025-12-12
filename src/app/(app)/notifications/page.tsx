@@ -26,10 +26,11 @@ import { Badge } from "@/components/ui/Badge";
 import { Sheet } from "@/components/ui/Modal";
 import { Toggle } from "@/components/ui/Toggle";
 
-const notificationIcons = {
+const notificationIcons: Record<string, typeof Users> = {
   community: Users,
   app: Wallet,
   transaction: Bell,
+  system: Bell,
 };
 
 export default function NotificationsPage() {
@@ -281,7 +282,7 @@ export default function NotificationsPage() {
           <div className="space-y-2">
             <AnimatePresence>
               {notifications.map((notification, index) => {
-                const Icon = notificationIcons[notification.type];
+                const Icon = notificationIcons[notification.type] || Bell;
 
                 return (
                   <motion.div
@@ -341,14 +342,14 @@ export default function NotificationsPage() {
                           {notification.body}
                         </p>
                         <p className="text-xs text-grey-200 mt-1">
-                          {timeAgo(notification.timestamp)}
+                          {timeAgo(notification.createdAt)}
                         </p>
                       </div>
 
                       {/* Link indicator */}
-                      {notification.linkTo && (
+                      {notification.url && (
                         <Link
-                          href={notification.linkTo}
+                          href={notification.url}
                           className="p-1 text-grey-200 hover:text-white"
                         >
                           <ChevronRight className="w-5 h-5" />

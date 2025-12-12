@@ -14,13 +14,61 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
-import { pushTokens } from "@/lib/db/schema";
+import { pushTokens, userNotifications, type NotificationType } from "@/lib/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import {
   sendPushNotification,
   sendPushNotificationToMany,
   sendToTopic,
 } from "@/lib/firebase/admin";
+
+/**
+ * Map topic names to notification types.
+ */
+function topicToNotificationType(topic: string): NotificationType {
+  switch (topic) {
+    case "community":
+      return "community";
+    case "wallet":
+      return "transaction";
+    case "price":
+      return "app";
+    default:
+      return "system";
+  }
+}
+
+/**
+ * Create inbox records for users when sending notifications.
+ */
+async function createInboxRecords(
+  userIds: string[],
+  notification: {
+    type: NotificationType;
+    title: string;
+    body: string;
+    url?: string;
+    data?: Record<string, string>;
+  }
+): Promise<void> {
+  if (userIds.length === 0) return;
+
+  try {
+    await db.insert(userNotifications).values(
+      userIds.map((userId) => ({
+        userId,
+        type: notification.type,
+        title: notification.title,
+        body: notification.body,
+        url: notification.url,
+        data: notification.data,
+      }))
+    );
+  } catch (error) {
+    console.error("[API] Failed to create inbox records:", error);
+    // Don't throw - inbox records are secondary to push notifications
+  }
+}
 
 /**
  * Request body for sending notifications.
@@ -115,6 +163,15 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // Create inbox records for all targeted users
+        await createInboxRecords(userIds, {
+          type: topic ? topicToNotificationType(topic) : "system",
+          title,
+          body: notificationBody,
+          url,
+          data,
+        });
+
         // Get active tokens for specified users
         const tokens = await db.query.pushTokens.findMany({
           where: and(
@@ -128,7 +185,8 @@ export async function POST(request: NextRequest) {
             success: true,
             targetType: "users",
             sent: 0,
-            message: "No active tokens found for specified users",
+            inboxCreated: userIds.length,
+            message: "No active tokens found for specified users, but inbox records created",
           });
         }
 
@@ -147,6 +205,7 @@ export async function POST(request: NextRequest) {
             success: true,
             targetType: "users",
             sent: 1,
+            inboxCreated: userIds.length,
             messageId: result,
           });
         }
@@ -164,6 +223,7 @@ export async function POST(request: NextRequest) {
           targetType: "users",
           sent: result.successCount,
           failed: result.failureCount,
+          inboxCreated: userIds.length,
         });
       }
 
@@ -181,6 +241,18 @@ export async function POST(request: NextRequest) {
             message: "No active tokens found",
           });
         }
+
+        // Get unique user IDs from tokens for inbox records
+        const uniqueUserIds = [...new Set(tokens.map((t) => t.userId))];
+
+        // Create inbox records for all users with active tokens
+        await createInboxRecords(uniqueUserIds, {
+          type: topic ? topicToNotificationType(topic) : "system",
+          title,
+          body: notificationBody,
+          url,
+          data,
+        });
 
         const tokenStrings = tokens.map((t) => t.token);
 
@@ -208,6 +280,7 @@ export async function POST(request: NextRequest) {
           sent: totalSuccess,
           failed: totalFailure,
           total: tokens.length,
+          inboxCreated: uniqueUserIds.length,
         });
       }
 

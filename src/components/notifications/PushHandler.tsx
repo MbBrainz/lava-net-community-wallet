@@ -7,6 +7,8 @@
  * Firebase's onBackgroundMessage only works when the app is closed/backgrounded.
  * For foreground notifications, we use onMessage and show a toast/banner.
  *
+ * Also refreshes the notification inbox when new messages arrive.
+ *
  * Add this component to the root providers to enable foreground notifications.
  */
 
@@ -15,6 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePush } from "@/context/PushNotificationsContext";
+import { useNotificationInbox } from "@/context/NotificationInboxContext";
 
 interface ForegroundNotification {
   id: string;
@@ -32,6 +35,7 @@ const NOTIFICATION_TIMEOUT = 6000;
 export function PushHandler() {
   const router = useRouter();
   const { onForegroundMessage, pushPermission: permission, pushToken: token } = usePush();
+  const { refresh: refreshInbox } = useNotificationInbox();
 
   const [notifications, setNotifications] = useState<ForegroundNotification[]>([]);
 
@@ -76,6 +80,9 @@ export function PushHandler() {
 
       setNotifications((prev) => [...prev, notification]);
 
+      // Refresh inbox to include the new notification
+      refreshInbox();
+
       // Auto-dismiss after timeout
       setTimeout(() => {
         dismissNotification(notification.id);
@@ -83,7 +90,7 @@ export function PushHandler() {
     });
 
     return unsubscribe;
-  }, [permission, token, onForegroundMessage, dismissNotification]);
+  }, [permission, token, onForegroundMessage, dismissNotification, refreshInbox]);
 
   // Don't render anything if no notifications
   if (notifications.length === 0) {
