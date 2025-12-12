@@ -22,7 +22,7 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
       {/* Glassmorphism background */}
-      <div className="absolute inset-0 bg-grey-650/90 backdrop-blur-xl border-t border-white/5" />
+      <div className="absolute inset-0 bg-grey-650/90 backdrop-blur-xl border-t border-white/5 backdrop-stable" />
       
       <div className="relative flex items-center justify-around h-[var(--bottom-nav-height)] max-w-lg mx-auto px-2">
         {navItems.map((item) => {

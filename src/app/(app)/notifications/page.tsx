@@ -152,6 +152,7 @@ export default function NotificationsPage() {
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
+        style={{ opacity: 0 }}
         className="px-4 pt-4 pb-2"
       >
         <div className="flex items-center justify-between">
@@ -193,6 +194,7 @@ export default function NotificationsPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            style={{ opacity: 0 }}
           >
             <Card variant="gradient" className="border-blue-500/30">
               <div className="flex items-start gap-4">
@@ -230,6 +232,7 @@ export default function NotificationsPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            style={{ opacity: 0 }}
           >
             <Card variant="outline" className="border-lava-orange/30 bg-lava-orange/5">
               <div className="flex items-start gap-4">
@@ -261,6 +264,7 @@ export default function NotificationsPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            style={{ opacity: 0 }}
             className="text-center py-12"
           >
             <div className="w-16 h-16 rounded-full bg-grey-425/50 flex items-center justify-center mx-auto mb-4">
@@ -286,6 +290,7 @@ export default function NotificationsPage() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
                     transition={{ delay: index * 0.03 }}
+                    style={{ opacity: 0 }}
                   >
                     <div
                       onClick={() => markAsRead(notification.id)}

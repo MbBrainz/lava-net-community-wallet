@@ -53,7 +53,7 @@ export default async function CommunityPostPage({ params }: PageProps) {
   return (
     <div className="min-h-screen pb-8">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-grey-650/80 backdrop-blur-xl border-b border-grey-425/30">
+      <header className="sticky top-0 z-10 bg-grey-650/80 backdrop-blur-xl border-b border-grey-425/30 backdrop-stable">
         <div className="flex items-center justify-between px-4 h-14">
           <Link
             href="/community"

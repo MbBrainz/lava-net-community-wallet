@@ -73,6 +73,7 @@ export default function LavaPage() {
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
+        style={{ opacity: 0 }}
         className="px-4 pt-4 pb-2"
       >
         <div className="flex items-center justify-between">
@@ -101,6 +102,7 @@ export default function LavaPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
+          style={{ opacity: 0 }}
         >
           <Card variant="gradient">
             <div className="flex items-center justify-between mb-4">
@@ -148,6 +150,7 @@ export default function LavaPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
+          style={{ opacity: 0 }}
         >
           <h2 className="text-lg font-semibold text-white mb-3">Quick Actions</h2>
           <div className="grid grid-cols-3 gap-3">
@@ -190,6 +193,7 @@ export default function LavaPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
+          style={{ opacity: 0 }}
         >
           <Card variant="glass">
             <div className="flex items-start gap-3">
@@ -210,6 +214,7 @@ export default function LavaPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
+          style={{ opacity: 0 }}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -239,6 +244,7 @@ export default function LavaPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 + index * 0.05 }}
+                style={{ opacity: 0 }}
               >
                 <Card
                   variant="glass"

@@ -127,6 +127,7 @@ export default function SettingsPage() {
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
+        style={{ opacity: 0 }}
         className="px-4 pt-4 pb-2"
       >
         <div className="flex items-center gap-3">
@@ -146,6 +147,7 @@ export default function SettingsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
+          style={{ opacity: 0 }}
         >
           <Card variant="gradient">
             <div className="flex items-center gap-4">
@@ -184,6 +186,7 @@ export default function SettingsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
+            style={{ opacity: 0 }}
           >
             <Card
               variant="outline"
@@ -218,6 +221,7 @@ export default function SettingsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + groupIndex * 0.05 }}
+            style={{ opacity: 0 }}
           >
             <h2 className="text-sm font-semibold text-grey-200 mb-2 px-1">
               {group.title}
@@ -297,6 +301,7 @@ export default function SettingsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
+            style={{ opacity: 0 }}
           >
             <div className="flex items-center gap-2 mb-3">
               <Gift className="w-4 h-4 text-lava-orange" />
@@ -316,6 +321,7 @@ export default function SettingsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
+          style={{ opacity: 0 }}
           className="space-y-4"
         >
           <Button

@@ -1,9 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { SwapWidget } from "@/components/swap/SwapWidget";
 
-export default function SwapPage() {
+function SwapPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -18,6 +20,20 @@ export default function SwapPage() {
       defaultToLava={defaultToLava}
       title={title}
     />
+  );
+}
+
+export default function SwapPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-grey-650">
+          <Loader2 className="w-8 h-8 text-lava-orange animate-spin" />
+        </div>
+      }
+    >
+      <SwapPageContent />
+    </Suspense>
   );
 }
 

@@ -26,6 +26,7 @@ export default function HomePage() {
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
+        style={{ opacity: 0 }}
         className="px-4 pt-4 pb-2"
       >
         <div className="flex items-center justify-between">

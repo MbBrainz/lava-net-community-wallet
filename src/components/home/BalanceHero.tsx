@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { RefreshCw, ChevronDown, Flame, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { useBalance } from "@/context/BalanceContext";
 import { useOffline } from "@/context/OfflineContext";
@@ -64,16 +63,12 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden"
-      >
+      <div className="relative overflow-hidden animate-fade-in">
         {/* Background gradient effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-lava-orange/20 via-lava-spanish-orange/10 to-transparent rounded-3xl" />
         <div className="absolute top-0 right-0 w-32 h-32 bg-lava-orange/30 rounded-full blur-3xl" />
         
-        <div className="relative p-6 rounded-3xl border border-lava-orange/20 bg-grey-550/50 backdrop-blur-xl">
+        <div className="relative p-6 rounded-3xl border border-lava-orange/20 bg-grey-550/50 backdrop-blur-xl backdrop-stable">
           {/* Header row */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -116,17 +111,24 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
             </p>
           </div>
 
-          {/* Chain badges */}
-          <div className="flex gap-2 mb-4">
-            {arbitrumLavaBalance > 0 && (
-              <Badge variant="default" size="sm" className="bg-[#12AAFF]/20 text-[#12AAFF]">
-                🔷 {formatTokenAmount(arbitrumLavaBalance)} on Arbitrum
-              </Badge>
-            )}
-            {baseLavaBalance > 0 && (
-              <Badge variant="default" size="sm" className="bg-[#0052FF]/20 text-[#0052FF]">
-                🔵 {formatTokenAmount(baseLavaBalance)} on Base
-              </Badge>
+          {/* Chain badges - fixed height to prevent layout shift */}
+          <div className="flex gap-2 mb-4 min-h-[20px]">
+            {!lastUpdated ? (
+              /* Skeleton while loading */
+              <div className="h-5 w-32 rounded-full skeleton" />
+            ) : (
+              <>
+                {arbitrumLavaBalance > 0 && (
+                  <Badge variant="default" size="sm" className="bg-[#12AAFF]/20 text-[#12AAFF]">
+                    🔷 {formatTokenAmount(arbitrumLavaBalance)} on Arbitrum
+                  </Badge>
+                )}
+                {baseLavaBalance > 0 && (
+                  <Badge variant="default" size="sm" className="bg-[#0052FF]/20 text-[#0052FF]">
+                    🔵 {formatTokenAmount(baseLavaBalance)} on Base
+                  </Badge>
+                )}
+              </>
             )}
           </div>
 
@@ -176,7 +178,7 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
             </button>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Balance Details Sheet */}
       <Sheet

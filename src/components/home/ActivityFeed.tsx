@@ -76,6 +76,7 @@ export function ActivityFeed() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
+              style={{ opacity: 0 }}
               className="flex items-center gap-3 px-4 py-3 hover:bg-grey-425/20 transition-colors"
             >
               {/* Icon */}

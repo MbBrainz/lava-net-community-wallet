@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Flame, BookOpen, Download, Clock, ArrowRightLeft } from "lucide-react";
+import { Flame, BookOpen, Download, Clock, ArrowRightLeft } from "lucide-react";
 import Link from "next/link";
 import { usePwa } from "@/context/PwaContext";
 import { useSwap } from "@/context/SwapContext";
@@ -79,7 +79,8 @@ export function FeatureCards() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.1 }}
-              className={`relative w-[260px] h-[140px] rounded-2xl overflow-hidden bg-gradient-to-br ${card.gradient} border border-white/5 ${card.comingSoon ? "" : "touch-feedback"}`}
+              style={{ opacity: 0 }}
+              className={`relative w-[260px] h-[140px] rounded-2xl overflow-hidden bg-gradient-to-br ${card.gradient} border ${card.comingSoon ? "border-white/5 opacity-50" : "border-lava-orange/20"}`}
             >
               {/* Background pattern */}
               <div className="absolute inset-0 opacity-30">
@@ -104,15 +105,15 @@ export function FeatureCards() {
 
               {/* Coming Soon badge */}
               {card.comingSoon && (
-                <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-grey-650/90 backdrop-blur-sm rounded-full border border-white/10">
+                <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-grey-650/90 backdrop-blur-sm rounded-full border border-white/10 backdrop-stable">
                   <Clock className="w-3 h-3 text-lava-orange" />
                   <span className="text-[10px] font-medium text-grey-100">Coming Soon</span>
                 </div>
               )}
 
               {/* Content */}
-              <div className={`relative p-4 h-full flex flex-col ${card.comingSoon ? "opacity-60" : ""}`}>
-                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-3">
+              <div className="relative p-4 h-full flex flex-col text-left">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center mb-3">
                   <Icon className="w-5 h-5 text-white" />
                 </div>
 
@@ -122,13 +123,6 @@ export function FeatureCards() {
                 <p className="text-grey-100 text-xs line-clamp-2 flex-1">
                   {card.description}
                 </p>
-
-                {!card.comingSoon && (
-                  <div className="flex items-center gap-1 text-lava-orange text-xs font-medium mt-2">
-                    <span>Get started</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                )}
               </div>
             </motion.div>
           );
@@ -140,14 +134,14 @@ export function FeatureCards() {
 
           if (card.href) {
             return (
-              <Link key={card.id} href={card.href}>
+              <Link key={card.id} href={card.href} className="touch-feedback rounded-2xl">
                 {content}
               </Link>
             );
           }
 
           return (
-            <button key={card.id} onClick={card.action}>
+            <button key={card.id} onClick={card.action} className="touch-feedback rounded-2xl">
               {content}
             </button>
           );
