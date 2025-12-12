@@ -20,9 +20,7 @@ const nextConfig: NextConfig = {
     `192.168.130.159`,
     `https://192.168.130.159:3001`,
   ],
-  // Transpile Dynamic Labs SDK packages for proper bundling
   transpilePackages: [
-    "@dynamic-labs/sdk-react-core",
   ],
 
   // Security headers for all routes
@@ -45,6 +43,7 @@ const nextConfig: NextConfig = {
 
   // Optimize imports for large packages (tree-shaking)
   experimental: {
+    turbopackTreeShaking: true,
     optimizePackageImports: [
       "lucide-react",
       "framer-motion",
