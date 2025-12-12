@@ -27,8 +27,19 @@ export function SessionRestoreGate({ children }: SessionRestoreGateProps) {
     attemptRestore();
   }, [attemptRestore]);
 
-  if (!isReady) return null;
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-grey-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-3 border-lava-orange border-t-transparent rounded-full animate-spin" />
+          <p className="text-grey-400 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 }
+
 
 
