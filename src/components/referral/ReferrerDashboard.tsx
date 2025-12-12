@@ -20,7 +20,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import Link from "next/link";
-import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -33,7 +33,7 @@ import type { ReferralStatsResponse } from "@/lib/referral/types";
 
 export function ReferrerDashboard() {
   const router = useRouter();
-  const { user } = useApp();
+  const { user } = useAuth();
   const userEmail = user?.email || "";
   const { authFetch, isReady } = useAuthFetch();
 

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw, ChevronDown, Flame, ArrowUpRight, ArrowDownLeft } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useBalance } from "@/context/BalanceContext";
+import { useOffline } from "@/context/OfflineContext";
 import { useLavaPrice, formatLavaPrice, formatUsdValue, calculateUsdValue } from "@/lib/hooks";
 import { formatTokenAmount, timeAgo, getChainColor } from "@/lib/utils";
 import { Sheet } from "@/components/ui/Modal";
@@ -26,8 +27,8 @@ export function BalanceHero({ onSend, onReceive }: BalanceHeroProps) {
     lastUpdated,
     refreshBalance,
     isRefreshing,
-    isOffline,
-  } = useApp();
+  } = useBalance();
+  const { isOffline } = useOffline();
 
   const { price: lavaPrice, isLoading: isPriceLoading } = useLavaPrice();
 

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { useOffline } from "@/context/OfflineContext";
 import { BalanceHero } from "@/components/home/BalanceHero";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { FeatureCards } from "@/components/home/FeatureCards";
@@ -12,7 +13,8 @@ import { SendSheet } from "@/components/wallet/SendSheet";
 import { ReceiveSheet } from "@/components/wallet/ReceiveSheet";
 
 export default function HomePage() {
-  const { user, isOffline } = useApp();
+  const { user } = useAuth();
+  const { isOffline } = useOffline();
   
   // Send/Receive sheet state
   const [showSendSheet, setShowSendSheet] = useState(false);

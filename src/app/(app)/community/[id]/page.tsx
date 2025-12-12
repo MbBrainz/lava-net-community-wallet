@@ -1,10 +1,6 @@
-"use client";
-
-import { use } from "react";
-import { motion } from "framer-motion";
-import { ArrowLeft, Share2, Calendar, Clock } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useApp } from "@/context/AppContext";
+import Link from "next/link";
+import { ArrowLeft, Calendar, Clock } from "lucide-react";
+import { mockCommunityPosts } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import Image from "next/image";
@@ -20,12 +16,9 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export default function CommunityPostPage({ params }: PageProps) {
-  const { id } = use(params);
-  const router = useRouter();
-  const { communityPosts } = useApp();
-
-  const post = communityPosts.find((p) => p.id === id);
+export default async function CommunityPostPage({ params }: PageProps) {
+  const { id } = await params;
+  const post = mockCommunityPosts.find((p) => p.id === id);
 
   if (!post) {
     return (
@@ -33,7 +26,9 @@ export default function CommunityPostPage({ params }: PageProps) {
         <div className="text-center">
           <h2 className="text-xl font-bold text-white mb-2">Post not found</h2>
           <p className="text-grey-200 mb-4">This post may have been removed</p>
-          <Button onClick={() => router.back()}>Go back</Button>
+          <Link href="/community">
+            <Button>Go back</Button>
+          </Link>
         </div>
       </div>
     );
@@ -55,52 +50,25 @@ export default function CommunityPostPage({ params }: PageProps) {
     }).format(new Date(date));
   };
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: post.title,
-          text: post.summary,
-          url: window.location.href,
-        });
-      } catch {
-        // User cancelled share
-      }
-    }
-  };
-
   return (
     <div className="min-h-screen pb-8">
       {/* Header */}
-      <motion.header
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="sticky top-0 z-10 bg-grey-650/80 backdrop-blur-xl border-b border-grey-425/30"
-      >
+      <header className="sticky top-0 z-10 bg-grey-650/80 backdrop-blur-xl border-b border-grey-425/30">
         <div className="flex items-center justify-between px-4 h-14">
-          <button
-            onClick={() => router.back()}
+          <Link
+            href="/community"
             className="p-2 -ml-2 text-white hover:bg-grey-425/50 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-          </button>
+          </Link>
           <span className="font-medium text-white">Community</span>
-          <button
-            onClick={handleShare}
-            className="p-2 -mr-2 text-white hover:bg-grey-425/50 rounded-lg transition-colors"
-          >
-            <Share2 className="w-5 h-5" />
-          </button>
+          <div className="w-9 h-9" />
         </div>
-      </motion.header>
+      </header>
 
       {/* Hero Image */}
       {post.imageUrl && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="relative h-48 overflow-hidden"
-        >
+        <div className="relative h-48 overflow-hidden">
           <Image
             src={post.imageUrl}
             alt={post.title}
@@ -108,16 +76,11 @@ export default function CommunityPostPage({ params }: PageProps) {
             className="object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-grey-650 to-transparent" />
-        </motion.div>
+        </div>
       )}
 
       {/* Content */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="px-4 py-5"
-      >
+      <div className="px-4 py-5">
         {/* Meta */}
         <div className="flex items-center gap-3 mb-4">
           <Badge variant={labelColors[post.label]}>{post.label}</Badge>
@@ -184,7 +147,7 @@ export default function CommunityPostPage({ params }: PageProps) {
             </Button>
           </div>
         )}
-      </motion.div>
+      </div>
     </div>
   );
 }

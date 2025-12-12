@@ -12,7 +12,8 @@ import {
   Clock,
 } from "lucide-react";
 import { FEATURES } from "@/lib/features";
-import { useApp } from "@/context/AppContext";
+import { useBalance } from "@/context/BalanceContext";
+import { useOffline } from "@/context/OfflineContext";
 import { useSwap } from "@/context/SwapContext";
 import { useLavaPrice, formatLavaPrice, formatUsdValue, calculateUsdValue } from "@/lib/hooks";
 import { formatTokenAmount, getChainColor } from "@/lib/utils";
@@ -21,17 +22,17 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Sheet, Modal } from "@/components/ui/Modal";
 import { LAVA_TOKEN_ADDRESS, getTokenExplorerUrl } from "@/lib/chains/registry";
+import { mockDeFiApps } from "@/lib/mock-data";
 
 export default function LavaPage() {
   const {
     totalLavaBalance,
     arbitrumLavaBalance,
     baseLavaBalance,
-    deFiApps,
-    isOffline,
     refreshBalance,
     isRefreshing,
-  } = useApp();
+  } = useBalance();
+  const { isOffline } = useOffline();
 
   const { price: lavaPrice, isLoading: isPriceLoading } = useLavaPrice();
   const { openSwap } = useSwap();
@@ -232,7 +233,7 @@ export default function LavaPage() {
           </div>
 
           <div className={`space-y-3 ${!FEATURES.DEFI ? "opacity-50 pointer-events-none" : ""}`}>
-            {deFiApps.map((app, index) => (
+            {mockDeFiApps.map((app, index) => (
               <motion.div
                 key={app.id}
                 initial={{ opacity: 0, x: -20 }}

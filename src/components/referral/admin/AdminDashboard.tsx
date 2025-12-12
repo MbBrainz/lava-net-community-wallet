@@ -19,7 +19,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -46,7 +46,7 @@ interface ApprovedReferrer {
 
 export function AdminDashboard() {
   const router = useRouter();
-  const { user } = useApp();
+  const { user } = useAuth();
   const userEmail = user?.email || "";
   const { authFetch, isReady } = useAuthFetch();
 

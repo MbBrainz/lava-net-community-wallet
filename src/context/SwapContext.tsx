@@ -1,39 +1,21 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-  ReactNode,
-} from "react";
-import dynamic from "next/dynamic";
-
-/**
- * Dynamically import SwapWidget to create a separate chunk.
- * This keeps LI.FI (~2-3MB) out of the main bundle.
- * The chunk is still precached by the service worker for PWA.
- */
-const SwapWidget = dynamic(
-  () => import("@/components/swap/SwapWidget").then((mod) => mod.SwapWidget),
-  { ssr: false }
-);
+import type { ReactNode } from "react";
+import { createContext, useCallback, useContext } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 interface SwapOptions {
   /** Whether to default to LAVA as destination token (default: true) */
   defaultToLava?: boolean;
   /** Custom title for the swap sheet */
   title?: string;
+  /** Optional return URL (defaults to current pathname) */
+  returnUrl?: string;
 }
 
 interface SwapContextType {
-  /** Open the swap widget */
+  /** Navigate to the swap route */
   openSwap: (options?: SwapOptions) => void;
-  /** Close the swap widget */
-  closeSwap: () => void;
-  /** Whether the swap widget is currently open */
-  isSwapOpen: boolean;
 }
 
 const SwapContext = createContext<SwapContextType | undefined>(undefined);
@@ -43,51 +25,33 @@ interface SwapProviderProps {
 }
 
 export function SwapProvider({ children }: SwapProviderProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [options, setOptions] = useState<SwapOptions>({
-    defaultToLava: true,
-    title: "Swap",
-  });
+  const router = useRouter();
+  const pathname = usePathname();
 
-  // Background prefetch: Load SwapWidget chunk after app settles
-  // This ensures the swap is instant when user clicks "Get LAVA"
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      import("@/components/swap/SwapWidget");
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
+  const openSwap = useCallback(
+    (opts?: SwapOptions) => {
+      const defaultToLava = opts?.defaultToLava ?? true;
+      const title = opts?.title ?? (defaultToLava ? "Get LAVA" : "Swap");
+      const returnUrl = opts?.returnUrl ?? pathname ?? "/";
 
-  const openSwap = useCallback((opts?: SwapOptions) => {
-    setOptions({
-      defaultToLava: opts?.defaultToLava ?? true,
-      title: opts?.title ?? (opts?.defaultToLava !== false ? "Get LAVA" : "Swap"),
-    });
-    setIsOpen(true);
-  }, []);
+      const params = new URLSearchParams({
+        defaultToLava: defaultToLava ? "true" : "false",
+        title,
+        returnUrl,
+      });
 
-  const closeSwap = useCallback(() => {
-    setIsOpen(false);
-  }, []);
+      router.push(`/swap?${params.toString()}`);
+    },
+    [pathname, router]
+  );
 
   return (
     <SwapContext.Provider
       value={{
         openSwap,
-        closeSwap,
-        isSwapOpen: isOpen,
       }}
     >
       {children}
-      {/* Only mount when open - triggers chunk load if not prefetched */}
-      {isOpen && (
-        <SwapWidget
-          isOpen={isOpen}
-          onClose={closeSwap}
-          defaultToLava={options.defaultToLava}
-          title={options.title}
-        />
-      )}
     </SwapContext.Provider>
   );
 }

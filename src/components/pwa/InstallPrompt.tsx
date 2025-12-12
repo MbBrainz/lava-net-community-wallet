@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Share, Plus, ArrowDown, Smartphone, Check } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { usePwa } from "@/context/PwaContext";
 import { isIOS } from "@/lib/utils";
 import Image from "next/image";
 
@@ -16,7 +16,7 @@ export function InstallPrompt() {
     showInstallBanner,
     setShowInstallBanner,
     trackPwaInstallEvent,
-  } = useApp();
+  } = usePwa();
 
   const [showIOSModal, setShowIOSModal] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -282,7 +282,7 @@ export function InstallPrompt() {
 
 // Small install hint that can be shown in cards
 export function InstallHint({ className = "" }: { className?: string }) {
-  const { isInstalled, setShowInstallBanner } = useApp();
+  const { isInstalled, setShowInstallBanner } = usePwa();
 
   if (isInstalled) return null;
 

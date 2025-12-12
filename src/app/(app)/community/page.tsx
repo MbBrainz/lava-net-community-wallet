@@ -1,6 +1,3 @@
-"use client";
-
-import { motion } from "framer-motion";
 import {
   Users,
   Pin,
@@ -11,7 +8,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
-import { useApp } from "@/context/AppContext";
+import { mockCommunityPosts } from "@/lib/mock-data";
 import { timeAgo } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -32,17 +29,13 @@ const labelColors = {
 } as const;
 
 export default function CommunityPage() {
-  const { communityPosts, pinnedPost } = useApp();
-  const regularPosts = communityPosts.filter((p) => !p.isPinned);
+  const pinnedPost = mockCommunityPosts.find((p) => p.isPinned) || null;
+  const regularPosts = mockCommunityPosts.filter((p) => !p.isPinned);
 
   return (
     <div className="min-h-screen pb-4">
       {/* Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="px-4 pt-4 pb-2"
-      >
+      <header className="px-4 pt-4 pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-lava-purple/30 flex items-center justify-center">
@@ -86,16 +79,12 @@ export default function CommunityPage() {
             </a>
           </div>
         </div>
-      </motion.header>
+      </header>
 
       <div className="px-4 py-4 space-y-5">
         {/* Pinned Announcement */}
         {pinnedPost && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
+          <div>
             <Link href={`/community/${pinnedPost.id}`}>
               <Card
                 variant="gradient"
@@ -139,7 +128,7 @@ export default function CommunityPage() {
                 </div>
               </Card>
             </Link>
-          </motion.div>
+          </div>
         )}
 
         {/* Feed List */}
@@ -149,16 +138,11 @@ export default function CommunityPage() {
           </h2>
 
           <div className="space-y-3">
-            {regularPosts.map((post, index) => {
+            {regularPosts.map((post) => {
               const LabelIcon = labelIcons[post.label];
 
               return (
-                <motion.div
-                  key={post.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 + index * 0.05 }}
-                >
+                <div key={post.id}>
                   <Link href={`/community/${post.id}`}>
                     <Card variant="glass" className="touch-feedback">
                       <div className="flex gap-4">
@@ -218,18 +202,14 @@ export default function CommunityPage() {
                       </div>
                     </Card>
                   </Link>
-                </motion.div>
+                </div>
               );
             })}
           </div>
         </section>
 
         {/* CTA Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
+        <div>
           <Card variant="outline" className="text-center">
             <div className="flex items-center justify-center gap-3 mb-3">
               <Image
@@ -256,7 +236,7 @@ export default function CommunityPage() {
               <ExternalLink className="w-4 h-4" />
             </a>
           </Card>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

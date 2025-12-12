@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Flame, BookOpen, Download, Clock, ArrowRightLeft } from "lucide-react";
 import Link from "next/link";
-import { useApp } from "@/context/AppContext";
+import { usePwa } from "@/context/PwaContext";
 import { useSwap } from "@/context/SwapContext";
 import Image from "next/image";
 import { FEATURES } from "@/lib/features";
@@ -21,7 +21,7 @@ interface FeatureCard {
 }
 
 export function FeatureCards() {
-  const { isInstalled, setShowInstallBanner } = useApp();
+  const { isInstalled, setShowInstallBanner } = usePwa();
   const { openSwap } = useSwap();
 
   const cards: FeatureCard[] = [

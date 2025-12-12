@@ -14,7 +14,7 @@ import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { usePushNotifications } from "@/lib/hooks/usePushNotifications";
+import { usePush } from "@/context/PushNotificationsContext";
 
 interface ForegroundNotification {
   id: string;
@@ -31,7 +31,7 @@ const NOTIFICATION_TIMEOUT = 6000;
 
 export function PushHandler() {
   const router = useRouter();
-  const { onForegroundMessage, permission, token } = usePushNotifications();
+  const { onForegroundMessage, pushPermission: permission, pushToken: token } = usePush();
 
   const [notifications, setNotifications] = useState<ForegroundNotification[]>([]);
 

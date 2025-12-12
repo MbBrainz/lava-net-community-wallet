@@ -1,10 +1,15 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
+import bundleAnalyzer from "@next/bundle-analyzer";
 
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
   swDest: "public/sw.js",
   disable: process.env.NODE_ENV === "development",
+});
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
 });
 
 const nextConfig: NextConfig = {
@@ -18,7 +23,6 @@ const nextConfig: NextConfig = {
   // Transpile Dynamic Labs SDK packages for proper bundling
   transpilePackages: [
     "@dynamic-labs/sdk-react-core",
-    "@dynamic-labs/cosmos",
   ],
 
   // Security headers for all routes
@@ -44,10 +48,6 @@ const nextConfig: NextConfig = {
     optimizePackageImports: [
       "lucide-react",
       "framer-motion",
-      "@cosmjs/stargate",
-      "@cosmjs/amino",
-      "@cosmjs/proto-signing",
-      "@cosmjs/encoding",
     ],
   },
 
@@ -77,4 +77,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSerwist(nextConfig);
+export default withBundleAnalyzer(withSerwist(nextConfig));

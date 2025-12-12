@@ -15,7 +15,9 @@ import {
   Download,
 } from "lucide-react";
 import Link from "next/link";
-import { useApp } from "@/context/AppContext";
+import { useNotificationInbox } from "@/context/NotificationInboxContext";
+import { usePwa } from "@/context/PwaContext";
+import { usePush } from "@/context/PushNotificationsContext";
 import { useAuthFetch } from "@/lib/auth/client";
 import { timeAgo, isIOS } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
@@ -38,6 +40,9 @@ export default function NotificationsPage() {
     markAllAsRead,
     notificationSettings,
     updateNotificationSettings,
+  } = useNotificationInbox();
+
+  const {
     // Push notification state from context
     pushSupported,
     pushConfigured,
@@ -46,10 +51,13 @@ export default function NotificationsPage() {
     pushLoading,
     pushError,
     requestPushPermission,
+  } = usePush();
+
+  const {
     // PWA state
     isInstalled,
     setShowInstallBanner,
-  } = useApp();
+  } = usePwa();
 
   const { authFetch, isReady: isAuthReady } = useAuthFetch();
 

@@ -16,7 +16,8 @@ import {
   Copy,
   Gift,
 } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { usePwa } from "@/context/PwaContext";
 import { shortenAddress, getChainColor } from "@/lib/utils";
 import { getAddressExplorerUrl, CHAIN_CONFIGS } from "@/lib/chains/registry";
 import { Card } from "@/components/ui/Card";
@@ -27,13 +28,9 @@ import { ReferrerSection, AdminSection } from "@/components/referral";
 import Image from "next/image";
 
 export default function SettingsPage() {
-  const {
-    user,
-    walletAddress,
-    logout,
-    isInstalled,
-    setShowInstallBanner,
-  } = useApp();
+  const { user, logout } = useAuth();
+  const { isInstalled, setShowInstallBanner } = usePwa();
+  const walletAddress = user?.walletAddress || null;
 
   const [showWalletSheet, setShowWalletSheet] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);

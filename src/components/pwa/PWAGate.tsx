@@ -16,8 +16,8 @@ import {
   LogIn,
 } from "lucide-react";
 import Image from "next/image";
-import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { usePwa } from "@/context/PwaContext";
 import { isIOS, isAndroid, isPWA } from "@/lib/utils";
 
 // Storage key for tracking iOS PWA first launch
@@ -34,7 +34,7 @@ export function PWAGate({ children }: PWAGateProps) {
     installPromptEvent,
     setInstallPromptEvent,
     trackPwaInstallEvent,
-  } = useApp();
+  } = usePwa();
   
   const { isAuthenticated, isInitialized } = useAuth();
 
