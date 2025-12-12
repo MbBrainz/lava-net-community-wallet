@@ -13,7 +13,7 @@ import {
 import { Sheet } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
-import { useApp } from "@/context/AppContext";
+import { useBalance } from "@/context/BalanceContext";
 import { isValidAddress } from "@/lib/wallet";
 import { formatTokenAmount } from "@/lib/utils";
 import { type ChainId, CHAIN_CONFIGS } from "@/lib/chains/registry";
@@ -26,7 +26,7 @@ interface SendSheetProps {
 export function SendSheet({ isOpen, onClose }: SendSheetProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const { arbitrumLavaBalance, baseLavaBalance } = useApp();
+  const { arbitrumLavaBalance, baseLavaBalance } = useBalance();
 
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");

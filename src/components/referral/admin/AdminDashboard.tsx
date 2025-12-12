@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * AdminDashboard Component
+ * AdminDashboard Component (v2)
  *
- * Full admin dashboard page content for managing referral codes.
+ * Full admin dashboard for managing referrers.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -19,50 +19,48 @@ import {
   CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AdminPendingList } from "./AdminPendingList";
 import { AdminApprovedList } from "./AdminApprovedList";
 import { useAuthFetch } from "@/lib/auth/client";
-import {
-  getAdminStatus,
-  saveAdminStatus,
-  AdminReferralsResponse,
-} from "@/lib/referral";
+import { getAdminStatus, saveAdminStatus } from "@/lib/referral";
+import type { AdminReferralsResponse } from "@/lib/referral/types";
 
-interface PendingCode {
-  code: string;
-  ownerEmail: string;
+interface PendingReferrer {
+  referrerId: string;
+  email: string;
   requestedAt: string;
 }
 
-interface ApprovedCode {
-  code: string;
-  ownerEmail: string;
-  approvedAt: string | null;
-  referralCount: number;
+interface ApprovedReferrer {
+  referrerId: string;
+  email: string;
+  approvedAt: string;
+  codeCount: number;
+  totalReferrals: number;
+  canSendNotifications: boolean;
 }
 
 export function AdminDashboard() {
   const router = useRouter();
-  const { user } = useApp();
+  const { user } = useAuth();
   const userEmail = user?.email || "";
   const { authFetch, isReady } = useAuthFetch();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pendingCodes, setPendingCodes] = useState<PendingCode[]>([]);
-  const [approvedCodes, setApprovedCodes] = useState<ApprovedCode[]>([]);
+  const [pendingReferrers, setPendingReferrers] = useState<PendingReferrer[]>([]);
+  const [approvedReferrers, setApprovedReferrers] = useState<ApprovedReferrer[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const checkAdminStatus = useCallback(async () => {
     if (!isReady) return false;
 
     try {
-      // Use authenticated fetch - email comes from JWT on server
       const response = await authFetch("/api/admin/check");
 
       if (response.status === 401) {
@@ -76,19 +74,18 @@ export function AdminDashboard() {
       saveAdminStatus({ userEmail, isAdmin: data.isAdmin });
 
       return data.isAdmin;
-    } catch (error) {
-      console.error("[AdminDashboard] Failed to check admin status:", error);
+    } catch (err) {
+      console.error("[AdminDashboard] Failed to check admin status:", err);
       setIsAdmin(false);
       return false;
     }
   }, [authFetch, isReady, userEmail]);
 
-  const fetchReferrals = useCallback(async () => {
+  const fetchReferrers = useCallback(async () => {
     if (!isReady) return;
 
     setError(null);
     try {
-      // Use authenticated fetch - email comes from JWT on server
       const response = await authFetch("/api/admin/referrals");
 
       if (response.status === 401) {
@@ -104,14 +101,14 @@ export function AdminDashboard() {
       const data: AdminReferralsResponse = await response.json();
 
       if ("error" in data) {
-        throw new Error((data as { message?: string }).message || "Failed to fetch referrals");
+        throw new Error((data as { message?: string }).message || "Failed to fetch referrers");
       }
 
-      setPendingCodes(data.pending);
-      setApprovedCodes(data.approved);
-    } catch (error) {
-      console.error("[AdminDashboard] Failed to fetch referrals:", error);
-      setError("Failed to load referral data");
+      setPendingReferrers(data.pending);
+      setApprovedReferrers(data.approved);
+    } catch (err) {
+      console.error("[AdminDashboard] Failed to fetch referrers:", err);
+      setError("Failed to load referrer data");
     }
   }, [authFetch, isReady, router]);
 
@@ -130,7 +127,7 @@ export function AdminDashboard() {
       if (cached?.isAdmin === true) {
         setIsAdmin(true);
         setIsLoading(false);
-        await fetchReferrals();
+        await fetchReferrers();
         return;
       }
 
@@ -139,32 +136,33 @@ export function AdminDashboard() {
       setIsLoading(false);
 
       if (!isAdminResult) {
-        // Not admin, redirect
         router.push("/settings");
         return;
       }
 
-      await fetchReferrals();
+      await fetchReferrers();
     };
 
     init();
-  }, [userEmail, router, isReady, checkAdminStatus, fetchReferrals]);
+  }, [userEmail, router, isReady, checkAdminStatus, fetchReferrers]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchReferrals();
+    await fetchReferrers();
     setIsRefreshing(false);
   };
 
-  const handleAction = async (code: string, action: "approve" | "reject") => {
+  const handleAction = async (
+    referrerId: string,
+    action: "approve" | "reject" | "enable_notifications" | "disable_notifications"
+  ) => {
     if (!isReady) return;
 
     try {
-      // Use authenticated fetch - admin status verified on server from JWT
       const response = await authFetch("/api/admin/referrals", {
-        method: "POST",
+        method: "PATCH",
         body: JSON.stringify({
-          code,
+          referrerId,
           action,
         }),
       });
@@ -182,13 +180,13 @@ export function AdminDashboard() {
       }
 
       if (data.success) {
-        await fetchReferrals();
+        await fetchReferrers();
       } else {
-        setError(data.message || `Failed to ${action} code`);
+        setError(data.message || `Failed to ${action}`);
       }
-    } catch (error) {
-      console.error("[AdminDashboard] Action failed:", error);
-      setError(`Failed to ${action} code`);
+    } catch (err) {
+      console.error("[AdminDashboard] Action failed:", err);
+      setError(`Failed to ${action}`);
     }
   };
 
@@ -208,13 +206,13 @@ export function AdminDashboard() {
     );
   }
 
-  // Not admin - shouldn't reach here as we redirect, but safety
+  // Not admin
   if (!isAdmin) {
     return null;
   }
 
   // Calculate stats
-  const totalReferrals = approvedCodes.reduce((sum, c) => sum + c.referralCount, 0);
+  const totalReferrals = approvedReferrers.reduce((sum, r) => sum + r.totalReferrals, 0);
 
   return (
     <div className="min-h-screen pb-4">
@@ -237,7 +235,7 @@ export function AdminDashboard() {
                 <Shield className="w-5 h-5 text-lava-orange" />
                 Admin Panel
               </h1>
-              <p className="text-sm text-grey-200">Manage referral codes</p>
+              <p className="text-sm text-grey-200">Manage referrers</p>
             </div>
           </div>
           <Button
@@ -246,9 +244,7 @@ export function AdminDashboard() {
             onClick={handleRefresh}
             disabled={isRefreshing}
           >
-            <RefreshCw
-              className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </Button>
         </div>
       </motion.header>
@@ -263,13 +259,13 @@ export function AdminDashboard() {
         >
           <Card variant="glass" className="text-center py-4">
             <Clock className="w-5 h-5 text-amber-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{pendingCodes.length}</p>
+            <p className="text-2xl font-bold text-white">{pendingReferrers.length}</p>
             <p className="text-xs text-grey-200">Pending</p>
           </Card>
           <Card variant="glass" className="text-center py-4">
             <CheckCircle className="w-5 h-5 text-green-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{approvedCodes.length}</p>
-            <p className="text-xs text-grey-200">Approved</p>
+            <p className="text-2xl font-bold text-white">{approvedReferrers.length}</p>
+            <p className="text-xs text-grey-200">Referrers</p>
           </Card>
           <Card variant="glass" className="text-center py-4">
             <Users className="w-5 h-5 text-lava-orange mx-auto mb-2" />
@@ -299,16 +295,19 @@ export function AdminDashboard() {
           <h2 className="text-sm font-semibold text-grey-100 mb-3 flex items-center gap-2">
             <Clock className="w-4 h-4 text-amber-400" />
             Pending Requests
-            {pendingCodes.length > 0 && (
+            {pendingReferrers.length > 0 && (
               <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-full">
-                {pendingCodes.length}
+                {pendingReferrers.length}
               </span>
             )}
           </h2>
-          <AdminPendingList pendingCodes={pendingCodes} onAction={handleAction} />
+          <AdminPendingList
+            pendingReferrers={pendingReferrers}
+            onAction={handleAction}
+          />
         </motion.section>
 
-        {/* Approved Codes */}
+        {/* Approved Referrers */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -316,16 +315,20 @@ export function AdminDashboard() {
         >
           <h2 className="text-sm font-semibold text-grey-100 mb-3 flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-400" />
-            Approved Codes
-            {approvedCodes.length > 0 && (
+            Approved Referrers
+            {approvedReferrers.length > 0 && (
               <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
-                {approvedCodes.length}
+                {approvedReferrers.length}
               </span>
             )}
           </h2>
-          <AdminApprovedList approvedCodes={approvedCodes} />
+          <AdminApprovedList
+            approvedReferrers={approvedReferrers}
+            onAction={handleAction}
+          />
         </motion.section>
       </div>
     </div>
   );
 }
+

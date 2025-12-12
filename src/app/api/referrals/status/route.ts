@@ -1,61 +1,65 @@
 /**
  * GET /api/referrals/status
  *
- * Purpose: Get current user's referral code status
- * Auth required: Yes (verified via JWT token)
- *
- * Headers:
- * - Authorization: Bearer <token>
- *
- * Responses:
- * - { status: "none" }
- * - { status: "pending", code, requestedAt }
- * - { status: "approved", code, requestedAt, approvedAt }
- * - { error: "unauthorized", message: "..." } (401)
+ * Get the authenticated user's referrer status.
+ * Returns whether they are a referrer, pending, or not a referrer.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db/client";
-import { referrerCodes } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import { getAuthenticatedUser } from "@/lib/auth/server";
+import { db } from "@/lib/db/client";
+import { referrers, referralCodes } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
-  try {
-    // Verify authentication via JWT
-    const auth = await getAuthenticatedUser(request);
-    if (!auth.success) {
-      return auth.response;
-    }
+  const auth = await getAuthenticatedUser(request);
+  if (!auth.success) {
+    return auth.response;
+  }
 
-    // Query for user's code using the VERIFIED email
-    const userCode = await db.query.referrerCodes.findFirst({
-      where: eq(referrerCodes.ownerEmail, auth.user.email),
+  try {
+    // Find referrer record with codes in a single query
+    const referrer = await db.query.referrers.findFirst({
+      where: eq(referrers.email, auth.user.email),
+      with: {
+        codes: {
+          orderBy: desc(referralCodes.createdAt),
+        },
+      },
     });
 
-    // Return appropriate response
-    if (!userCode) {
+    if (!referrer) {
       return NextResponse.json({ status: "none" });
     }
 
-    if (!userCode.isApproved) {
+    if (!referrer.isApproved) {
       return NextResponse.json({
         status: "pending",
-        code: userCode.code,
-        requestedAt: userCode.requestedAt.toISOString(),
+        requestedAt: referrer.createdAt.toISOString(),
       });
     }
 
+    // Extract codes from relation
+    const codes = referrer.codes;
+
     return NextResponse.json({
       status: "approved",
-      code: userCode.code,
-      requestedAt: userCode.requestedAt.toISOString(),
-      approvedAt: userCode.approvedAt?.toISOString(),
+      referrerId: referrer.id,
+      approvedAt: referrer.approvedAt?.toISOString() || referrer.updatedAt.toISOString(),
+      canSendNotifications: referrer.canSendNotifications,
+      codes: codes.map((code) => ({
+        code: code.code,
+        label: code.label,
+        isActive: code.isActive,
+        expiresAt: code.expiresAt?.toISOString() || null,
+        usageCount: code.usageCount,
+        createdAt: code.createdAt.toISOString(),
+      })),
     });
   } catch (error) {
-    console.error("[Status] Error:", error);
+    console.error("[Referrals] Failed to get status:", error);
     return NextResponse.json(
-      { error: "server_error", message: "Internal server error" },
+      { error: "server_error", message: "Failed to get referrer status" },
       { status: 500 }
     );
   }

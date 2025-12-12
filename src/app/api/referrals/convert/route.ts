@@ -1,157 +1,109 @@
 /**
  * POST /api/referrals/convert
  *
- * Purpose: Attribute a referral when new user signs up
- * Auth required: Yes (verified via JWT token)
- *
- * Headers:
- * - Authorization: Bearer <token>
- *
- * Request body:
- * - referralData: { ref, tag?, source?, fullParams, capturedAt }
- * - walletAddress?: string
- *
- * Note: userEmail and dynamicUserId are extracted from the verified JWT
+ * Convert a referral - attribute a new user signup to a referral code.
+ * Called when a user signs up with a referral code.
+ * Captures UTM parameters for analytics.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db/client";
-import { referrerCodes, userReferrals } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
-import { isExpired } from "@/lib/referral";
 import { getAuthenticatedUser } from "@/lib/auth/server";
-import { z } from "zod";
-
-// Simplified schema - user info comes from JWT now
-const convertRequestSchema = z.object({
-  referralData: z.object({
-    ref: z.string().min(1),
-    tag: z.string().optional(),
-    source: z.string().optional(),
-    fullParams: z.record(z.string(), z.string()).optional(),
-    capturedAt: z.string(),
-  }),
-  walletAddress: z.string().optional(),
-});
-
-// Sanitize fullParams to prevent abuse
-function sanitizeFullParams(
-  params: Record<string, string> | undefined | null
-): Record<string, string> {
-  if (!params) return {};
-
-  return Object.fromEntries(
-    Object.entries(params)
-      .slice(0, 20) // Max 20 params
-      .map(([k, v]) => [
-        k.slice(0, 50), // Max 50 char keys
-        String(v).slice(0, 200), // Max 200 char values
-      ])
-  );
-}
+import { db } from "@/lib/db/client";
+import { referralCodes, userReferrals } from "@/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
+import { validateCode, normalizeCode } from "@/lib/referral/code-generator";
+import { convertReferralSchema } from "@/lib/referral/types";
 
 export async function POST(request: NextRequest) {
+  const auth = await getAuthenticatedUser(request);
+  if (!auth.success) {
+    return auth.response;
+  }
+
   try {
-    // Verify authentication via JWT
-    const auth = await getAuthenticatedUser(request);
-    if (!auth.success) {
-      return auth.response;
+    const body = await request.json();
+    
+    // Validate request body
+    const parsed = convertReferralSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "invalid_request", message: parsed.error.issues[0]?.message || "Invalid request" },
+        { status: 400 }
+      );
+    }
+    
+    const { code, utmSource, utmMedium, utmCampaign } = parsed.data;
+
+    const normalizedCode = normalizeCode(code);
+
+    // Check if user already has a referral
+    const existingReferral = await db.query.userReferrals.findFirst({
+      where: eq(userReferrals.userEmail, auth.user.email),
+    });
+
+    if (existingReferral) {
+      return NextResponse.json({
+        status: "already_referred",
+        message: "You already have a referral attribution",
+        codeUsed: existingReferral.codeUsed,
+      });
     }
 
-    const body = await request.json();
+    // Validate the code
+    const validation = await validateCode(normalizedCode);
 
-    // 1. Validate request body
-    const parseResult = convertRequestSchema.safeParse(body);
-    if (!parseResult.success) {
+    if (!validation.isValid) {
+      const messages: Record<string, string> = {
+        not_found: "Referral code not found",
+        inactive: "This referral code is no longer active",
+        expired: "This referral code has expired",
+        invalid_format: "Invalid referral code format",
+      };
+
       return NextResponse.json(
         {
-          success: false,
-          error: "invalid_request",
-          message: parseResult.error.issues[0]?.message || "Invalid request",
+          error: "invalid_code",
+          message: messages[validation.reason || "not_found"],
         },
         { status: 400 }
       );
     }
 
-    const { referralData, walletAddress } = parseResult.data;
+    const codeRecord = validation.code!;
 
-    // Use VERIFIED email and userId from JWT
-    const userEmail = auth.user.email;
-    const dynamicUserId = auth.user.userId;
+    // Create the referral record with UTM parameters
+    const [newReferral] = await db
+      .insert(userReferrals)
+      .values({
+        userEmail: auth.user.email,
+        userDynamicId: auth.user.userId,
+        userWalletAddress: null, // Can be updated later
+        codeUsed: codeRecord.code,
+        referrerId: codeRecord.referrerId,
+        utmSource: utmSource || null,
+        utmMedium: utmMedium || null,
+        utmCampaign: utmCampaign || null,
+      })
+      .returning();
 
-    // 2. Check expiry
-    if (isExpired(referralData.capturedAt)) {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Convert] Referral expired for user");
-      }
-      return NextResponse.json({
-        success: true,
-        attributed: false,
-        reason: "expired",
-      });
-    }
-
-    // 3. Check if code is approved
-    const referrerCode = await db.query.referrerCodes.findFirst({
-      where: and(
-        eq(referrerCodes.code, referralData.ref),
-        eq(referrerCodes.isApproved, true)
-      ),
-    });
-
-    if (!referrerCode) {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Convert] Code not approved:", referralData.ref);
-      }
-      return NextResponse.json({
-        success: true,
-        attributed: false,
-        reason: "code_not_approved",
-      });
-    }
-
-    // 4. Check if user already has referral
-    const existingReferral = await db.query.userReferrals.findFirst({
-      where: eq(userReferrals.userEmail, userEmail),
-    });
-
-    if (existingReferral) {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Convert] User already has referral");
-      }
-      return NextResponse.json({
-        success: true,
-        attributed: false,
-        reason: "already_attributed",
-      });
-    }
-
-    // 5. Insert referral record with sanitized params
-    await db.insert(userReferrals).values({
-      userEmail,
-      dynamicUserId,
-      walletAddress: walletAddress || null,
-      referrerCode: referralData.ref,
-      customTag: referralData.tag || null,
-      source: referralData.source || null,
-      fullParams: sanitizeFullParams(referralData.fullParams),
-      referredAt: new Date(referralData.capturedAt),
-    });
-
-    if (process.env.NODE_ENV === "development") {
-      console.log("[Convert] Referral attributed:", {
-        code: referralData.ref,
-      });
-    }
+    // Increment usage count on the code
+    await db
+      .update(referralCodes)
+      .set({
+        usageCount: sql`${referralCodes.usageCount} + 1`,
+      })
+      .where(eq(referralCodes.code, codeRecord.code));
 
     return NextResponse.json({
-      success: true,
-      attributed: true,
+      status: "success",
+      message: "Referral attributed successfully",
+      referralId: newReferral.id,
+      codeUsed: newReferral.codeUsed,
     });
   } catch (error) {
-    console.error("[Convert] Error:", error);
+    console.error("[Referrals] Failed to convert referral:", error);
     return NextResponse.json(
-      { success: false, error: "server_error", message: "Internal server error" },
+      { error: "server_error", message: "Failed to attribute referral" },
       { status: 500 }
     );
   }

@@ -52,12 +52,23 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Background pattern */
+/* Background pattern
+   iOS Safari/PWA + backdrop-filter can flicker with background-attachment: fixed.
+   Use a fixed pseudo-element instead to keep the same visual without re-raster glitches.
+*/
 body {
-  background: 
+  background: var(--background);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
     radial-gradient(ellipse at 50% 0%, rgba(255, 57, 0, 0.08) 0%, transparent 50%),
     linear-gradient(180deg, #0C121A 0%, #05090F 100%);
-  background-attachment: fixed;
 }
 
 /* Safe area padding for notched devices */
@@ -102,6 +113,23 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Stabilize backdrop-filter compositing across navigations */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  isolation: isolate;
+}
+
+/* Helper to stabilize backdrop-filter on specific elements
+   (Chrome/macOS and iOS can intermittently re-raster blurred layers after state updates). */
+.backdrop-stable {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  isolation: isolate;
+  will-change: transform;
 }
 
 
@@ -189,6 +217,24 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 8px;
+}
+
+/* Fade-in animation - CSS-only replacement for Framer Motion.
+   Uses 'both' fill-mode so elements start hidden (like Framer Motion initial state).
+   Runs once on initial mount without causing re-rasterization on re-renders. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
 }
 
 

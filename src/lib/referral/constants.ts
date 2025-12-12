@@ -1,42 +1,36 @@
 /**
  * Referral System Configuration
  *
- * This file contains all configurable values for the referral system.
- * Change these values to adjust system behavior.
+ * Configuration for the referrer-centric referral system.
  */
 
 export const REFERRAL_CONFIG = {
   // ============================================
-  // CODE VALIDATION
+  // CODE SETTINGS
   // ============================================
 
-  /** Maximum length for referral codes */
-  CODE_MAX_LENGTH: 20,
+  /** Length of auto-generated codes */
+  CODE_LENGTH: 6,
+
+  /** Maximum codes per referrer */
+  MAX_CODES_PER_REFERRER: 20,
 
   /**
-   * Regex pattern for valid codes
-   * Allows: letters, numbers, underscore, hyphen
-   * Does NOT allow: spaces, special characters
+   * Character set for code generation.
+   * Excludes ambiguous characters: 0, O, I, l, 1
    */
-  CODE_PATTERN: /^[a-zA-Z0-9_-]+$/,
-
-  // ============================================
-  // REFERRAL EXPIRY
-  // ============================================
-
-  /** How many days a referral link stays valid */
-  REFERRAL_EXPIRY_DAYS: 30,
+  CODE_CHARSET: "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
 
   // ============================================
   // LOCALSTORAGE KEYS
   // ============================================
 
   STORAGE_KEYS: {
-    /** Stores referral data captured from URL */
-    CAPTURED_REFERRAL: "lava_referral",
+    /** Stores referral code captured from URL */
+    CAPTURED_REFERRAL: "lava_referral_v2",
 
-    /** Caches user's own referral code status */
-    USER_REFERRAL_STATUS: "lava_ref_status",
+    /** Caches user's referrer status */
+    REFERRER_STATUS: "lava_referrer_status",
 
     /** Caches admin status */
     ADMIN_STATUS: "lava_admin_status",
@@ -47,17 +41,19 @@ export const REFERRAL_CONFIG = {
   // ============================================
 
   URL_PARAMS: {
-    /** Main referral code parameter */
+    /** Referral code parameter */
     REF: "ref",
-
-    /** Optional tracking tag */
-    TAG: "tag",
-
-    /** Optional source identifier */
-    SOURCE: "source",
   },
+
+  // ============================================
+  // CACHE SETTINGS
+  // ============================================
+
+  /** How long to cache referrer status (in milliseconds) */
+  STATUS_CACHE_TTL: 5 * 60 * 1000, // 5 minutes
+
+  /** How long to cache admin status (in milliseconds) */
+  ADMIN_CACHE_TTL: 10 * 60 * 1000, // 10 minutes
 } as const;
 
-// Type export for use in other files
 export type ReferralConfig = typeof REFERRAL_CONFIG;
-

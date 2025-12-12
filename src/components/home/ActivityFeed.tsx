@@ -9,7 +9,7 @@ import {
   HelpCircle,
   ExternalLink,
 } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useOffline } from "@/context/OfflineContext";
 import { formatTokenAmount, timeAgo, getChainColor } from "@/lib/utils";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -32,7 +32,8 @@ const txLabels: Record<WalletTransaction["type"], string> = {
 };
 
 export function ActivityFeed() {
-  const { transactions, isOffline } = useApp();
+  const { isOffline } = useOffline();
+  const transactions: WalletTransaction[] = [];
 
   if (transactions.length === 0) {
     return (
@@ -75,6 +76,7 @@ export function ActivityFeed() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
+              style={{ opacity: 0 }}
               className="flex items-center gap-3 px-4 py-3 hover:bg-grey-425/20 transition-colors"
             >
               {/* Icon */}

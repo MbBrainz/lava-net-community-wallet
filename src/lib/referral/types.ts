@@ -1,145 +1,119 @@
 /**
  * Referral System Types
  *
- * Uses drizzle-zod to generate Zod schemas from Drizzle tables.
- * This ensures database types and validation are always in sync.
+ * Architecture: referrers → codes → referrals (with UTM captured at signup)
  */
 
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { admins, referrerCodes, userReferrals } from "@/lib/db/schema";
-import { REFERRAL_CONFIG } from "./constants";
+import {
+  referrers,
+  referralCodes,
+  userReferrals,
+  admins,
+  CODE_LENGTH,
+  MAX_CODES_PER_REFERRER,
+} from "@/lib/db/schema";
 
 // ============================================
-// ADMINS
+// ADMINS (unchanged)
 // ============================================
 
-/** Schema for selecting admin records */
 export const selectAdminSchema = createSelectSchema(admins);
-
-/** Schema for inserting admin records */
 export const insertAdminSchema = createInsertSchema(admins);
-
-/** Type for an admin record from the database */
 export type Admin = z.infer<typeof selectAdminSchema>;
 
 // ============================================
-// REFERRER CODES
+// REFERRERS
 // ============================================
 
-/** Schema for selecting referrer code records */
-export const selectReferrerCodeSchema = createSelectSchema(referrerCodes);
+export const selectReferrerSchema = createSelectSchema(referrers);
+export const insertReferrerSchema = createInsertSchema(referrers);
 
-/** Schema for inserting referrer code records */
-export const insertReferrerCodeSchema = createInsertSchema(referrerCodes, {
-  // Add custom validation for the code field
-  code: z
-    .string()
-    .min(1, "Code is required")
-    .max(
-      REFERRAL_CONFIG.CODE_MAX_LENGTH,
-      `Code must be ${REFERRAL_CONFIG.CODE_MAX_LENGTH} characters or less`
-    )
-    .regex(
-      REFERRAL_CONFIG.CODE_PATTERN,
-      "Code can only contain letters, numbers, underscores, and hyphens"
-    ),
-});
+export type Referrer = z.infer<typeof selectReferrerSchema>;
+export type NewReferrer = z.infer<typeof insertReferrerSchema>;
 
-/** Type for a referrer code record from the database */
-export type ReferrerCode = z.infer<typeof selectReferrerCodeSchema>;
+// ============================================
+// REFERRAL CODES
+// ============================================
 
-/** Type for inserting a new referrer code */
-export type NewReferrerCode = z.infer<typeof insertReferrerCodeSchema>;
+export const selectReferralCodeSchema = createSelectSchema(referralCodes);
+export const insertReferralCodeSchema = createInsertSchema(referralCodes);
+
+export type ReferralCode = z.infer<typeof selectReferralCodeSchema>;
+export type NewReferralCode = z.infer<typeof insertReferralCodeSchema>;
 
 // ============================================
 // USER REFERRALS
 // ============================================
 
-/** Schema for selecting user referral records */
 export const selectUserReferralSchema = createSelectSchema(userReferrals);
-
-/** Schema for inserting user referral records */
 export const insertUserReferralSchema = createInsertSchema(userReferrals);
 
-/** Type for a user referral record from the database */
 export type UserReferral = z.infer<typeof selectUserReferralSchema>;
-
-/** Type for inserting a new user referral */
 export type NewUserReferral = z.infer<typeof insertUserReferralSchema>;
 
 // ============================================
-// API REQUEST/RESPONSE SCHEMAS
+// API REQUEST SCHEMAS
 // ============================================
 
-/** Schema for referral code availability check */
-export const checkCodeAvailabilitySchema = z.object({
-  code: z.string().min(1).max(REFERRAL_CONFIG.CODE_MAX_LENGTH),
+/** Schema for creating a new referral code */
+export const createCodeSchema = z.object({
+  label: z.string().max(100).optional(),
+  expiresAt: z.string().datetime().optional(),
 });
 
-/** Schema for requesting a new referral code */
-export const requestCodeSchema = z.object({
+/** Schema for converting a referral (signup attribution) */
+export const convertReferralSchema = z.object({
   code: z
     .string()
-    .min(1, "Code is required")
-    .max(
-      REFERRAL_CONFIG.CODE_MAX_LENGTH,
-      `Maximum ${REFERRAL_CONFIG.CODE_MAX_LENGTH} characters`
-    )
-    .regex(
-      REFERRAL_CONFIG.CODE_PATTERN,
-      "Only letters, numbers, underscores, and hyphens allowed"
-    ),
+    .length(CODE_LENGTH, `Code must be ${CODE_LENGTH} characters`),
+  utmSource: z.string().max(100).optional(),
+  utmMedium: z.string().max(100).optional(),
+  utmCampaign: z.string().max(100).optional(),
 });
 
-/** Schema for converting a referral (attributing on signup) */
-export const convertReferralSchema = z.object({
-  userEmail: z.string().email(),
-  dynamicUserId: z.string().min(1),
-  walletAddress: z.string().optional(),
-  referralData: z.object({
-    ref: z.string().min(1).max(REFERRAL_CONFIG.CODE_MAX_LENGTH),
-    tag: z.string().optional(),
-    source: z.string().optional(),
-    fullParams: z.record(z.string(), z.string()),
-    capturedAt: z.string().datetime(),
-  }),
-});
-
-/** Schema for admin actions on referral codes */
-export const adminActionSchema = z.object({
-  code: z.string().min(1).max(REFERRAL_CONFIG.CODE_MAX_LENGTH),
-  action: z.enum(["approve", "reject"]),
+/** Schema for admin action on a referrer */
+export const adminReferrerActionSchema = z.object({
+  referrerId: z.string().uuid(),
+  action: z.enum(["approve", "reject", "enable_notifications", "disable_notifications"]),
 });
 
 // ============================================
 // LOCALSTORAGE TYPES
 // ============================================
 
-/** Shape of referral data stored in localStorage */
+/** UTM parameters captured from URL */
+export type UTMParams = {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+};
+
+/** Referral data stored from URL (includes UTM for later conversion) */
 export const storedReferralSchema = z.object({
-  ref: z.string(),
-  tag: z.string().optional(),
-  source: z.string().optional(),
-  fullParams: z.record(z.string(), z.string()),
+  code: z.string().length(CODE_LENGTH),
+  utmSource: z.string().optional(),
+  utmMedium: z.string().optional(),
+  utmCampaign: z.string().optional(),
   capturedAt: z.string().datetime(),
 });
 
 export type StoredReferral = z.infer<typeof storedReferralSchema>;
 
-/** Shape of cached referral status in localStorage */
-export const cachedReferralStatusSchema = z.object({
+/** Cached referrer status */
+export const cachedReferrerStatusSchema = z.object({
   userEmail: z.string().email(),
   status: z.enum(["none", "pending", "approved"]),
-  code: z.string().optional(),
-  requestedAt: z.string().datetime().optional(),
+  referrerId: z.string().uuid().optional(),
+  codeCount: z.number().optional(),
   approvedAt: z.string().datetime().optional(),
   cachedAt: z.string().datetime(),
 });
 
-export type CachedReferralStatus = z.infer<typeof cachedReferralStatusSchema>;
+export type CachedReferrerStatus = z.infer<typeof cachedReferrerStatusSchema>;
 
-/** Shape of cached admin status in localStorage */
+/** Cached admin status */
 export const cachedAdminStatusSchema = z.object({
   userEmail: z.string().email(),
   isAdmin: z.boolean(),
@@ -152,37 +126,80 @@ export type CachedAdminStatus = z.infer<typeof cachedAdminStatusSchema>;
 // API RESPONSE TYPES
 // ============================================
 
-/** Response from /api/referrals/status */
-export type ReferralStatusResponse =
-  | { status: "none" }
-  | { status: "pending"; code: string; requestedAt: string }
-  | { status: "approved"; code: string; requestedAt: string; approvedAt: string };
-
-/** Response from /api/referrals/stats */
-export type ReferralStatsResponse = {
+/** Code info (no UTM - UTM is captured at conversion) */
+export type CodeInfo = {
   code: string;
+  label: string | null;
+  isActive: boolean;
+  expiresAt: string | null;
+  usageCount: number;
+  createdAt: string;
+};
+
+/** Response from GET /api/referrals/status */
+export type ReferrerStatusResponse =
+  | { status: "none" }
+  | { status: "pending"; requestedAt: string }
+  | {
+      status: "approved";
+      referrerId: string;
+      approvedAt: string;
+      canSendNotifications: boolean;
+      codes: CodeInfo[];
+    };
+
+/** Response from POST /api/referrals/codes */
+export type CreateCodeResponse = CodeInfo;
+
+/** UTM breakdown stats */
+export type UTMBreakdown = {
+  source: Array<{ value: string | null; count: number }>;
+  medium: Array<{ value: string | null; count: number }>;
+  campaign: Array<{ value: string | null; count: number }>;
+};
+
+/** Response from GET /api/referrals/stats */
+export type ReferralStatsResponse = {
+  referrerId: string;
   totalReferrals: number;
-  referrals: Array<{
+  codeStats: Array<{
+    code: string;
+    label: string | null;
+    usageCount: number;
+    isActive: boolean;
+    expiresAt: string | null;
+  }>;
+  utmBreakdown: UTMBreakdown;
+  recentReferrals: Array<{
     id: string;
-    userEmail: string; // Partially masked
+    userEmail: string; // Masked
+    codeUsed: string;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
     convertedAt: string;
-    tag: string | null;
-    source: string | null;
   }>;
 };
 
-/** Response from /api/admin/referrals */
+/** Response from GET /api/admin/referrals */
 export type AdminReferralsResponse = {
   pending: Array<{
-    code: string;
-    ownerEmail: string;
+    referrerId: string;
+    email: string;
     requestedAt: string;
   }>;
   approved: Array<{
-    code: string;
-    ownerEmail: string;
+    referrerId: string;
+    email: string;
     approvedAt: string;
-    referralCount: number;
+    codeCount: number;
+    totalReferrals: number;
+    canSendNotifications: boolean;
   }>;
 };
 
+// ============================================
+// CONSTANTS
+// ============================================
+
+export { CODE_LENGTH, MAX_CODES_PER_REFERRER };
