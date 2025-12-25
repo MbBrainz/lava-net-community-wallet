@@ -21,7 +21,7 @@ interface FreeCryptoAPIResponse {
 }
 
 export async function GET() {
-  const apiKey = process.env.FREECRYPTOAPI_KEY;
+  const apiKey = process.env.FREECRYPTOAPI_KEY?.trim();
 
   if (!apiKey) {
     console.error("[lava-price] FREECRYPTOAPI_KEY not configured");
@@ -38,6 +38,7 @@ export async function GET() {
         headers: {
           Accept: "*/*",
           Authorization: `Bearer ${apiKey}`,
+          "User-Agent": "Lava-Community-Wallet/1.0",
         },
         // Let Next cache this response for `revalidate` seconds
         next: { revalidate: 3600 },
@@ -45,7 +46,30 @@ export async function GET() {
     );
 
     if (!res.ok) {
-      console.error("[lava-price] API request failed:", res.status, res.statusText);
+      // Try to read error response body for debugging
+      let errorDetails = "";
+      try {
+        errorDetails = await res.text();
+      } catch {
+        // Ignore if we can't read the body
+      }
+
+      console.error(
+        `[lava-price] API request failed: ${res.status} ${res.statusText}`,
+        errorDetails ? `Response body: ${errorDetails}` : ""
+      );
+
+      // Provide more specific error for 403
+      if (res.status === 403) {
+        return NextResponse.json(
+          {
+            error: "Authentication failed",
+            details: "FreeCryptoAPI returned 403 Forbidden. This may indicate an invalid API key, expired key, insufficient permissions, or IP restrictions.",
+          },
+          { status: 502 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Failed to fetch LAVA price" },
         { status: 502 }
