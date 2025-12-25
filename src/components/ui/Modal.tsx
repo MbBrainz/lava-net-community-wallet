@@ -42,7 +42,7 @@ export function Modal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -113,7 +113,7 @@ export function Sheet({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[60]">
+        <div className="fixed inset-0 z-[70]">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
